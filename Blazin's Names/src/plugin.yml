@@ -1,0 +1,11 @@
+main: net.viedantmc.BlazinNames.Main
+name: BlazinNames
+version: 0.7.2
+author: Blazin_
+api-version: 1.13
+
+commands:
+  namecolor:
+    aliases: color
+  nickname:
+    aliases: nick
