@@ -1,3 +1,5 @@
+// This version is obsolete, the next version will contain much more efficient code
+
 package net.viedantmc.BlazinNames;
 
 
@@ -80,21 +82,21 @@ public class Main extends JavaPlugin implements Listener{
 		}
 		String BoldEffect = "";
 		if(!(Playername.contains("~"))) {
-			if (Playername.contains("ง")) {
+			if (Playername.contains("ยง")) {
 				nickColors = Playername.substring(0,2);
-				if (nickColors.contains("งl"))  {
-					BoldEffect = "งl";
+				if (nickColors.contains("ยงl"))  {
+					BoldEffect = "ยงl";
 				}
 			}
 		}
 			if (Playername.contains("~")) {
-				if (Playername.contains("ง")) {
+				if (Playername.contains("ยง")) {
 					nickColors = Playername.substring(0,2);
-					if (nickColors.contains("งl"))  {
-						BoldEffect = "งl";
+					if (nickColors.contains("ยงl"))  {
+						BoldEffect = "ยงl";
 						}
-					else if (nickColors2.contains("งl")) {
-						BoldEffect = "งl";
+					else if (nickColors2.contains("ยงl")) {
+						BoldEffect = "ยงl";
 					}
 				}
 			}
@@ -111,7 +113,7 @@ public class Main extends JavaPlugin implements Listener{
 				return true;
 			}
             if(!(args.length == 0)){
-            	if ((nickColors.contains("ง"))) { 
+            	if ((nickColors.contains("ยง"))) { 
             		// Nickname + Set color
             		player.setDisplayName(nickColors + BoldEffect+ "~" + nick+ ChatColor.RESET);
             		sender.sendMessage(ChatColor.GOLD + "Your nickname has been set to " + player.getDisplayName());
@@ -153,15 +155,15 @@ public class Main extends JavaPlugin implements Listener{
 		Player player = (Player) event.getWhoClicked();
 		String Playername = player.getDisplayName();
 		String nickColors = "";
-		if (Playername.substring(0,2).contains("ง")) {
+		if (Playername.substring(0,2).contains("ยง")) {
 			nickColors = Playername.substring(0,2);
 		}
 		String nickColors2 = Playername.substring(2,4);
 		String BoldEffect = "";
-		if (nickColors.contains("งl")) {
+		if (nickColors.contains("ยงl")) {
 			BoldEffect = "&l";
 		}
-		else if (nickColors2.contains("งl")) {
+		else if (nickColors2.contains("ยงl")) {
 			BoldEffect = "&l";
 		}
 		
@@ -326,7 +328,7 @@ public class Main extends JavaPlugin implements Listener{
 		}
 		
 		if(event.getSlot()== 15) {
-			if ((nickColors.contains("ง"))) {
+			if ((nickColors.contains("ยง"))) {
 			player.setDisplayName(org.bukkit.ChatColor.translateAlternateColorCodes('&', nickColors + "&l" + nick + "&r" ));
 			player.closeInventory();
 			player.sendMessage(org.bukkit.ChatColor.translateAlternateColorCodes('&', nickColors + "&l"+ "Your name is now Bold!"));
