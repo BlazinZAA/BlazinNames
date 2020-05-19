@@ -175,6 +175,7 @@ public class Main extends JavaPlugin implements Listener{
 			//blue team
 			player.setDisplayName(player.getDisplayName().replaceAll("&", "2"));
 			player.setDisplayName(ChatColor.translateAlternateColorCodes('&', "&1" + BoldEffect + nick + "&r"));
+			player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', "&1" + BoldEffect + nick + "&r"));
 			player.closeInventory();
 			player.sendMessage(ChatColor.BOLD + "" + ChatColor.DARK_BLUE + "You set your name color to dark blue!");
 			nick.replace("~", "");
@@ -187,8 +188,9 @@ public class Main extends JavaPlugin implements Listener{
 			//blue team
 			player.setDisplayName(player.getDisplayName().replaceAll("&", "2"));
 			player.setDisplayName(ChatColor.translateAlternateColorCodes('&', "&9" + BoldEffect +nick + "&r"));
+			player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', "&9" + BoldEffect + nick + "&r"));
 			player.closeInventory();
-			player.sendMessage(ChatColor.BOLD + "" + ChatColor.BLUE + "You set your name olor to blue!");
+			player.sendMessage(ChatColor.BOLD + "" + ChatColor.BLUE + "You set your name color to blue!");
 			nick.replace("~", "");
 			if (!(player.getDisplayName().contains("~")))
 				if(!nick.equals(player.getName()))
@@ -198,6 +200,7 @@ public class Main extends JavaPlugin implements Listener{
 		if(event.getSlot() == 2) {
 			//blue team
 			player.setDisplayName(ChatColor.translateAlternateColorCodes('&', "&4" +BoldEffect + nick + "&r"));
+			player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', "&4" + BoldEffect + nick + "&r"));
 			player.closeInventory();
 			player.sendMessage(ChatColor.BOLD + "" + ChatColor.DARK_RED + "You set your name color to Dark Red");
 			nick.replace("~", "");
@@ -208,6 +211,7 @@ public class Main extends JavaPlugin implements Listener{
 		}
 		if(event.getSlot() == 3) {
 			player.setDisplayName(ChatColor.translateAlternateColorCodes('&', "&c" +BoldEffect + nick + "&r"));
+			player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', "&c" + BoldEffect + nick + "&r"));
 			player.closeInventory();
 			player.sendMessage(ChatColor.BOLD + "" + ChatColor.RED + "You set your name color to Red!");
 			nick.replace("~", "");
@@ -218,6 +222,7 @@ public class Main extends JavaPlugin implements Listener{
 		}
 		if(event.getSlot() == 4) {
 			player.setDisplayName(ChatColor.translateAlternateColorCodes('&', "&d" +BoldEffect + nick + "&r"));
+			player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', "&d" + BoldEffect + nick + "&r"));
 			player.closeInventory();
 			player.sendMessage(ChatColor.BOLD + "" + ChatColor.LIGHT_PURPLE + "You set your name color to Pink!");
 			nick.replace("~", "");
@@ -228,6 +233,7 @@ public class Main extends JavaPlugin implements Listener{
 		}
 		if(event.getSlot() == 5) {
 			player.setDisplayName(ChatColor.translateAlternateColorCodes('&', "&5" +BoldEffect + nick + "&r"));
+			player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', "&5" + BoldEffect + nick + "&r"));
 			player.closeInventory();
 			player.sendMessage(ChatColor.BOLD + "" + ChatColor.DARK_PURPLE + "You set your name color to Purple!");
 			nick.replace("~", "");
@@ -238,6 +244,7 @@ public class Main extends JavaPlugin implements Listener{
 		}
 		if(event.getSlot() == 6) {
 			player.setDisplayName(ChatColor.translateAlternateColorCodes('&', "&2" +BoldEffect + nick + "&r"));
+			player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', "&2" + BoldEffect + nick + "&r"));
 			player.closeInventory();
 			player.sendMessage(ChatColor.translateAlternateColorCodes('&', "&2"+ "You set your name color to Light Green!"));
 			nick.replace("~", "");
@@ -248,6 +255,7 @@ public class Main extends JavaPlugin implements Listener{
 		}
 		if(event.getSlot() == 7) {
 			player.setDisplayName(ChatColor.translateAlternateColorCodes('&', "&2" + BoldEffect +nick + "&r"));
+			player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', "&2" + BoldEffect + nick + "&r"));
 			player.closeInventory();
 			player.sendMessage(ChatColor.translateAlternateColorCodes('&', "&2"+ "You set your name color to Dark Green!"));
 			nick.replace("~", "");
@@ -258,6 +266,7 @@ public class Main extends JavaPlugin implements Listener{
 		}
 		if(event.getSlot() == 8) {
 			player.setDisplayName(ChatColor.translateAlternateColorCodes('&', "&3" +BoldEffect + nick + "&r"));
+			player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', "&3" + BoldEffect + nick + "&r"));
 			player.closeInventory();
 			player.sendMessage(ChatColor.translateAlternateColorCodes('&', "&3"+ "You set your name color to Cyan!"));
 			nick.replace("~", "");
@@ -268,6 +277,7 @@ public class Main extends JavaPlugin implements Listener{
 		}
 		if(event.getSlot() == 9) {
 			player.setDisplayName(ChatColor.translateAlternateColorCodes('&', "&b" +BoldEffect + nick + "&r"));
+			player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', "&b" + BoldEffect + nick + "&r"));
 			player.closeInventory();
 			player.sendMessage(ChatColor.translateAlternateColorCodes('&', "&b"+ "You set your name color to Light Blue!"));
 			nick.replace("~", "");
@@ -278,6 +288,7 @@ public class Main extends JavaPlugin implements Listener{
 		}
 		if(event.getSlot() == 10) {
 			player.setDisplayName(ChatColor.translateAlternateColorCodes('&', "&6" + BoldEffect +nick + "&r"));
+			player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', "&6" + BoldEffect + nick + "&r"));
 			player.closeInventory();
 			player.sendMessage(ChatColor.translateAlternateColorCodes('&', "&6"+ "You set your name color to Orange!"));
 			nick.replace("~", "");
@@ -288,6 +299,7 @@ public class Main extends JavaPlugin implements Listener{
 		}
 		if(event.getSlot()== 11) {
 			player.setDisplayName(org.bukkit.ChatColor.translateAlternateColorCodes('&',"&e" +BoldEffect + nick + "&r" ));
+			player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', "&e" + BoldEffect + nick + "&r"));
 			player.closeInventory();
 			player.sendMessage(org.bukkit.ChatColor.translateAlternateColorCodes('&',"&e" + "You set your name color to Yellow!"));
 			nick.replace("~", "");
@@ -298,6 +310,7 @@ public class Main extends JavaPlugin implements Listener{
 		}
 		if(event.getSlot()== 12) {
 			player.setDisplayName(org.bukkit.ChatColor.translateAlternateColorCodes('&',"&0" + BoldEffect +nick + "&r" ));
+			player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', "&0" + BoldEffect + nick + "&r"));
 			player.closeInventory();
 			player.sendMessage(org.bukkit.ChatColor.translateAlternateColorCodes('&',"&0" + "You set your name color to Black!"));
 			nick.replace("~", "");
@@ -308,6 +321,7 @@ public class Main extends JavaPlugin implements Listener{
 		}
 		if(event.getSlot()== 13) {
 			player.setDisplayName(org.bukkit.ChatColor.translateAlternateColorCodes('&',"&8" + BoldEffect +nick + "&r" ));
+			player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', "&8" + BoldEffect + nick + "&r"));
 			player.closeInventory();
 			player.sendMessage(org.bukkit.ChatColor.translateAlternateColorCodes('&',"&8" + "You set your name color to Gray!"));
 			nick.replace("~", "");
@@ -318,6 +332,7 @@ public class Main extends JavaPlugin implements Listener{
 		}
 		if(event.getSlot()== 14) {
 			player.setDisplayName(org.bukkit.ChatColor.translateAlternateColorCodes('&',"&7" +BoldEffect + nick + "&r" ));
+			player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', "&7" + BoldEffect + nick + "&r"));
 			player.closeInventory();
 			player.sendMessage(org.bukkit.ChatColor.translateAlternateColorCodes('&',"&7" + "You set your name color to Light Gray"));
 			nick.replace("~", "");
@@ -330,6 +345,7 @@ public class Main extends JavaPlugin implements Listener{
 		if(event.getSlot()== 15) {
 			if ((nickColors.contains("§"))) {
 			player.setDisplayName(org.bukkit.ChatColor.translateAlternateColorCodes('&', nickColors + "&l" + nick + "&r" ));
+			player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', BoldEffect + nick + "&r"));
 			player.closeInventory();
 			player.sendMessage(org.bukkit.ChatColor.translateAlternateColorCodes('&', nickColors + "&l"+ "Your name is now Bold!"));
 			nick.replace("~", "");
@@ -340,6 +356,7 @@ public class Main extends JavaPlugin implements Listener{
 		}
 			else {
 			player.setDisplayName(org.bukkit.ChatColor.translateAlternateColorCodes('&', "&l" + nick + "&r"));
+			player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', "&l" + BoldEffect + nick + "&r"));
 			player.closeInventory();
 			player.sendMessage(org.bukkit.ChatColor.translateAlternateColorCodes('&', "&l"+ "Your name is now Bold!"));
 			nick.replace("~", "");
@@ -351,6 +368,7 @@ public class Main extends JavaPlugin implements Listener{
 		}
 		if(event.getSlot()== 17) {
 			player.setDisplayName(org.bukkit.ChatColor.translateAlternateColorCodes('&',player.getDisplayName()));
+			player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', BoldEffect + nick + "&r"));
 			player.closeInventory();
 			nick.replace("~", "");
 			if (!(player.getDisplayName().contains("~")))

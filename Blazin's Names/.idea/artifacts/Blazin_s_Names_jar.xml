@@ -1,0 +1,9 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="Blazin's Names:jar">
+    <output-path>$PROJECT_DIR$/../..</output-path>
+    <root id="archive" name="Blazin's Names.jar">
+      <element id="module-output" name="Blazin's Names" />
+      <element id="extracted-dir" path="$USER_HOME$/Documents/BuildTools/Spigot/Spigot-API/target/spigot-api-1.15.2-R0.1-SNAPSHOT-shaded.jar" path-in-jar="/" />
+    </root>
+  </artifact>
+</component>
