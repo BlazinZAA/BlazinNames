@@ -82,21 +82,21 @@ public class Main extends JavaPlugin implements Listener{
 		}
 		String BoldEffect = "";
 		if(!(Playername.contains("~"))) {
-			if (Playername.contains("Â§")) {
+			if (Playername.contains("§")) {
 				nickColors = Playername.substring(0,2);
-				if (nickColors.contains("Â§l"))  {
-					BoldEffect = "Â§l";
+				if (nickColors.contains("§l"))  {
+					BoldEffect = "§l";
 				}
 			}
 		}
 			if (Playername.contains("~")) {
-				if (Playername.contains("Â§")) {
+				if (Playername.contains("§")) {
 					nickColors = Playername.substring(0,2);
-					if (nickColors.contains("Â§l"))  {
-						BoldEffect = "Â§l";
+					if (nickColors.contains("§l"))  {
+						BoldEffect = "§l";
 						}
-					else if (nickColors2.contains("Â§l")) {
-						BoldEffect = "Â§l";
+					else if (nickColors2.contains("§l")) {
+						BoldEffect = "§l";
 					}
 				}
 			}
@@ -155,15 +155,15 @@ public class Main extends JavaPlugin implements Listener{
 		Player player = (Player) event.getWhoClicked();
 		String Playername = player.getDisplayName();
 		String nickColors = "";
-		if (Playername.substring(0,2).contains("Â§")) {
+		if (Playername.substring(0,2).contains("§")) {
 			nickColors = Playername.substring(0,2);
 		}
 		String nickColors2 = Playername.substring(2,4);
 		String BoldEffect = "";
-		if (nickColors.contains("Â§l")) {
+		if (nickColors.contains("§l")) {
 			BoldEffect = "&l";
 		}
-		else if (nickColors2.contains("Â§l")) {
+		else if (nickColors2.contains("§l")) {
 			BoldEffect = "&l";
 		}
 		
