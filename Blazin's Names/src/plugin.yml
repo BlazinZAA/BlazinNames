@@ -3,6 +3,7 @@ name: BlazinNames
 version: 0.7.2
 author: Blazin_
 api-version: 1.13
+depend: [HeadDatabase]
 
 commands:
   namecolor:
