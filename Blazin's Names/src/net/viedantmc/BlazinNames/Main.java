@@ -165,7 +165,7 @@ public class Main extends JavaPlugin implements Listener {
             //Get users real name from actualNames HashMap.
             String actualName = actualNames.get(player.getUniqueId());
             //Get unformatted current player name.
-            String currentName = player.getDisplayName().replaceAll("§.", "");
+            String currentName = player.getDisplayName().replaceAll("§.|~", "");
             //Use the luck perms API to fetch the users rank chat prefix.
             String lpPrefix = lpAPI.getUserManager().getUser(player.getUniqueId()).getCachedData().getMetaData().getPrefix();
             if (lpPrefix == null) { //If null, convert to "".
@@ -190,10 +190,12 @@ public class Main extends JavaPlugin implements Listener {
                 actualNames.putIfAbsent(player.getUniqueId(), currentName);
                 //Load that name into a var.
                 actualName = actualNames.get(player.getUniqueId());
-                String nickNameWithFormatting = actualName;
+                String nickNameWithFormatting = player.getDisplayName().replace(currentName, nickName);
                 //If setting a nickname, put a ~ in front of the name.
                 if (!(actualName.equals(nickName))) {
-                    nickNameWithFormatting = "~" + player.getDisplayName().replace(currentName, nickName);
+                    if (player.getDisplayName().charAt(0) != '~') {
+                        nickNameWithFormatting = "~" + player.getDisplayName().replace(currentName, nickName);
+                    }
                 }
                 //Set the new nickname in the chat and tablist.
                 player.setDisplayName(ChatColor.translateAlternateColorCodes('&', nickNameWithFormatting));
