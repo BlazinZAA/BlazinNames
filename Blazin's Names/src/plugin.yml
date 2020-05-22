@@ -8,5 +8,7 @@ depend: [HeadDatabase]
 commands:
   namecolor:
     aliases: color
+    permission: bn.namecolor
   nickname:
     aliases: nick
+    permission: bn.nickname

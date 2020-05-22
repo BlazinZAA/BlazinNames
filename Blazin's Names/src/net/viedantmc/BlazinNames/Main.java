@@ -36,30 +36,31 @@ public class Main extends JavaPlugin implements Listener {
     public Inventory inv;
     public HeadDatabaseAPI hdbAPI;
     public LuckPerms lpAPI;
-    public ArrayList<String> headColorIDArr = new ArrayList<String>(Arrays.asList(
-            "6265", //BLACK
-            "6263", //DARK_BLUE
-            "6247", //DARK_GREEN
-            "31697", //DARK_AQUA
-            "6241", //DARK_RED
-            "6242", //DARK_PURPLE
-            "6240", //GOLD
-            "6223", //GRAY
-            "6232", //DARK_GRAY
-            "6149", //BLUE
-            "6197", //GREEN
-            "6252", //AQUA
-            "6141", //RED
-            "6172", //LIGHT_PURPLE
-            "6135", //YELLOW
-            "6137" //WHITE
+    final public String chatOutputPrefix = ChatColor.GRAY + "[" + ChatColor.GOLD + "Blazin" + ChatColor.RED + "Names" + ChatColor.GRAY + "] " + ChatColor.RESET;
+    public ArrayList<Material> headColorIDArr = new ArrayList<Material>(Arrays.asList(
+            Material.BLACK_CONCRETE, //BLACK
+            Material.BLUE_CONCRETE, //DARK_BLUE
+            Material.GREEN_CONCRETE, //DARK_GREEN
+            Material.CYAN_CONCRETE, //DARK_AQUA
+            Material.RED_CONCRETE, //DARK_RED
+            Material.MAGENTA_CONCRETE, //DARK_PURPLE
+            Material.YELLOW_CONCRETE, //GOLD
+            Material.LIGHT_GRAY_CONCRETE, //GRAY
+            Material.GRAY_CONCRETE, //DARK_GRAY
+            Material.BLUE_CONCRETE_POWDER, //BLUE
+            Material.LIME_CONCRETE_POWDER, //GREEN
+            Material.CYAN_CONCRETE_POWDER, //AQUA
+            Material.RED_CONCRETE_POWDER, //RED
+            Material.MAGENTA_CONCRETE_POWDER, //LIGHT_PURPLE
+            Material.YELLOW_CONCRETE_POWDER, //YELLOW
+            Material.WHITE_CONCRETE_POWDER //WHITE
     ));
-    public ArrayList<Material> miscEffectItems = new ArrayList<Material>(Arrays.asList(
-            Material.SUNFLOWER,
-            Material.STICK,
-            Material.NETHER_BRICK_FENCE,
-            Material.FIREWORK_ROCKET,
-            Material.STRING
+    public ArrayList<String> miscEffectItems = new ArrayList<String>(Arrays.asList(
+            "27530",
+            "32822",
+            "32819",
+            "32820",
+            "32821"
     ));
 
     @Override
@@ -120,36 +121,44 @@ public class Main extends JavaPlugin implements Listener {
 
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
         Player player = (Player) sender;
-        String currentName = player.getDisplayName().replaceAll("§.", "");
-        String lpPrefix = lpAPI.getUserManager().getUser(player.getUniqueId()).getCachedData().getMetaData().getPrefix();
-        if (lpPrefix == null) {
-            lpPrefix = "";
-        }
         if (label.equalsIgnoreCase("NameColor") || label.equalsIgnoreCase("Color")) {
             player.openInventory(inv);
             return false;
         } else if (label.equalsIgnoreCase("Nickname") || label.equalsIgnoreCase("Nick")) {
+            if (args.length != 1) {
+                player.sendMessage(chatOutputPrefix + ChatColor.RED + "Invalid command syntax. The correct syntax is /" + label + " §onickname§r.");
+                return true;
+            }
+            String actualName = actualNames.get(player.getUniqueId());
+            String currentName = player.getDisplayName().replaceAll("§.", "");
+            String lpPrefix = lpAPI.getUserManager().getUser(player.getUniqueId()).getCachedData().getMetaData().getPrefix();
+            if (lpPrefix == null) {
+                lpPrefix = "";
+            }
             String nickName = args[0];
             if (nickName.equalsIgnoreCase("Reset")) {
-                String actualName = actualNames.get(player.getUniqueId());
                 if (actualName != null) {
                     String actualNameWithFormatting = player.getDisplayName().replace(currentName, actualName);
                     player.setDisplayName(ChatColor.translateAlternateColorCodes('&', actualNameWithFormatting));
                     player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', lpPrefix + actualNameWithFormatting));
-                    player.sendMessage("[BlazinNames] Your nickname was reset!");
+                    player.sendMessage(chatOutputPrefix + "Your nickname was reset!");
                 } else {
-                    player.sendMessage("[BlazinNames] You do not have a nickname set.");
+                    player.sendMessage(chatOutputPrefix + "You do not have a nickname set.");
                 }
                 return true;
             } else if (nickName.matches("([A-Za-z0-9]|_){3,16}")) {
                 actualNames.putIfAbsent(player.getUniqueId(), currentName);
-                String nickNameWithFormatting = player.getDisplayName().replace(currentName, "~" + nickName);
+                actualName = actualNames.get(player.getUniqueId());
+                String nickNameWithFormatting = actualName;
+                if (!(actualName.equals(nickName))) {
+                    nickNameWithFormatting = "~" + player.getDisplayName().replace(currentName, nickName);
+                }
                 player.setDisplayName(ChatColor.translateAlternateColorCodes('&', nickNameWithFormatting));
                 player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', lpPrefix + nickNameWithFormatting));
-                player.sendMessage("[BlazinNames] Your nickname was set to " + nickNameWithFormatting + "! Type /nick reset to reset it at any time.");
+                player.sendMessage(chatOutputPrefix +"Your nickname was set to " + nickNameWithFormatting + "! Type /" + label + " §rreset to reset it at any time.");
                 customNames.put(player.getUniqueId(), player.getDisplayName());
             } else {
-                player.sendMessage("[BlazinNames] Nicknames must be alphanumeric and between 3-16 characters. The only special symbol allowed is _.");
+                sender.sendMessage(chatOutputPrefix + ChatColor.RED + "Nicknames must be alphanumeric and between 3-16 characters. The only special symbol allowed is _.");
                 return true;
             }
 
@@ -190,7 +199,7 @@ public class Main extends JavaPlugin implements Listener {
             }
             player.setDisplayName(ChatColor.translateAlternateColorCodes('&', reformattedName + ChatColor.RESET));
             player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', lpPrefix + reformattedName + ChatColor.RESET));
-            player.sendMessage("[BlazinNames] You set your name color to " + color + color.getName().replaceAll("_", " ").toUpperCase() + ChatColor.RESET + "!");
+            player.sendMessage(chatOutputPrefix + "You changed the color of your name. Your new name is " + reformattedName);
         } else if (itemDisplayName.matches("§.(OBFUSCATED|BOLD|STRIKETHROUGH|UNDERLINE|ITALIC)")) {
             String effect = itemDisplayName.substring(0, 2);
             String reformattedName = "";
@@ -201,7 +210,7 @@ public class Main extends JavaPlugin implements Listener {
             }
             player.setDisplayName(ChatColor.translateAlternateColorCodes('&', reformattedName + ChatColor.RESET));
             player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', lpPrefix + reformattedName + ChatColor.RESET));
-            player.sendMessage("[BlazinNames] You applied " + effect + event.getCurrentItem().getItemMeta().getDisplayName() + ChatColor.RESET + " to your name!");
+            player.sendMessage(chatOutputPrefix + "You applied an effect to your name. Your new name is " + reformattedName);
         } else if (eventSlot == 33) {
             player.setDisplayName(ChatColor.translateAlternateColorCodes('&', playerName.replaceAll("§.", "")));
             player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', lpPrefix + playerName.replaceAll("§.", "")));
@@ -218,7 +227,7 @@ public class Main extends JavaPlugin implements Listener {
         inv = Bukkit.createInventory(null, 54, ChatColor.DARK_GRAY + "" + "Select Name Color");
 
         for (int x = 0; x < 16; x++) {
-            ItemStack colorBlock = hdbAPI.getItemHead(headColorIDArr.get(x));
+            ItemStack colorBlock = new ItemStack(headColorIDArr.get(x), 1);
             ItemMeta colorBlockMeta = (ItemMeta) colorBlock.getItemMeta();
             colorBlockMeta.setDisplayName(ChatColor.values()[x] + ChatColor.values()[x].getName().replaceAll("_", " ").toUpperCase());
             colorBlock.setItemMeta(colorBlockMeta);
@@ -226,20 +235,20 @@ public class Main extends JavaPlugin implements Listener {
         }
 
         for (int x = 16; x < 21; x++) {
-            ItemStack item = new ItemStack(miscEffectItems.get(x - 16), 1);
+            ItemStack item = hdbAPI.getItemHead(miscEffectItems.get(x-16));
             ItemMeta itemMeta = (ItemMeta) item.getItemMeta();
             itemMeta.setDisplayName(ChatColor.values()[x] + ChatColor.values()[x].getName().toUpperCase());
             item.setItemMeta(itemMeta);
             inv.setItem(x + 11, item);
         }
 
-        ItemStack resetItem = hdbAPI.getItemHead("26417");
+        ItemStack resetItem = hdbAPI.getItemHead("32823");
         ItemMeta resetItemMeta = (ItemMeta) resetItem.getItemMeta();
         resetItemMeta.setDisplayName("* RESET *");
         resetItem.setItemMeta(resetItemMeta);
         inv.setItem(33, resetItem);
 
-        ItemStack closeItem = new ItemStack(Material.HOPPER, 1);
+        ItemStack closeItem = hdbAPI.getItemHead("26417");
         ItemMeta closeItemMeta = (ItemMeta) closeItem.getItemMeta();
         closeItemMeta.setDisplayName("CLOSE");
         closeItem.setItemMeta(closeItemMeta);
