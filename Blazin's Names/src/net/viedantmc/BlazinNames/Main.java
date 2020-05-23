@@ -154,29 +154,42 @@ public class Main extends JavaPlugin implements Listener {
     @Override
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
         Player player = (Player) sender;
+        //Get users real name from actualNames HashMap.
+        String actualName = actualNames.get(player.getUniqueId());
+        //Get unformatted current player name.
+        String currentName = player.getDisplayName().replaceAll("§.|~", "");
+        //Use the luck perms API to fetch the users rank chat prefix.
+        String lpPrefix = lpAPI.getUserManager().getUser(player.getUniqueId()).getCachedData().getMetaData().getPrefix();
+        if (lpPrefix == null) { //If null, convert to "".
+            lpPrefix = "";
+        }
         if (label.equalsIgnoreCase("NameColor") || label.equalsIgnoreCase("Color")) { //color, namecolor
             player.openInventory(inv);
             return true;
         } else if (label.equalsIgnoreCase("Nickname") || label.equalsIgnoreCase("Nick")) { //nickname, nick
-            if (args.length != 1) { //Invalid number of args? Show error.
-                player.sendMessage(chatOutputPrefix + ChatColor.RED + "Invalid command syntax. The correct syntax is /" + label + " §onickname§r.");
+            if (args.length == 0) {
+                if (actualName != null) {
+                    //Apply formatting to real name.
+                    String actualNameWithFormatting = player.getDisplayName().replaceAll(currentName, actualName).replaceAll("~", "");
+                    //Reset the nickname in the chat and tablist.
+                    player.setDisplayName(ChatColor.translateAlternateColorCodes('&', actualNameWithFormatting));
+                    player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', lpPrefix + actualNameWithFormatting));
+                    player.sendMessage(chatOutputPrefix + "Your nickname was reset!");
+                } else {
+                    player.sendMessage(chatOutputPrefix + "You do not have a nickname set. Type /"+ label + " §onickname§r to set a nickname.");
+                }
                 return true;
             }
-            //Get users real name from actualNames HashMap.
-            String actualName = actualNames.get(player.getUniqueId());
-            //Get unformatted current player name.
-            String currentName = player.getDisplayName().replaceAll("§.|~", "");
-            //Use the luck perms API to fetch the users rank chat prefix.
-            String lpPrefix = lpAPI.getUserManager().getUser(player.getUniqueId()).getCachedData().getMetaData().getPrefix();
-            if (lpPrefix == null) { //If null, convert to "".
-                lpPrefix = "";
+            if (args.length > 1) { //Invalid number of args? Show error.
+                player.sendMessage(chatOutputPrefix + ChatColor.RED + "Invalid command syntax. The correct syntax is /" + label + " §onickname§r.");
+                return true;
             }
             //Load new nickname from args.
             String nickName = args[0];
             if (nickName.equalsIgnoreCase("Reset")) { //Resetting nickname.
                 if (actualName != null) {
                     //Apply formatting to real name.
-                    String actualNameWithFormatting = player.getDisplayName().replace(currentName, actualName);
+                    String actualNameWithFormatting = player.getDisplayName().replaceAll(currentName, actualName).replaceAll("~", "");
                     //Reset the nickname in the chat and tablist.
                     player.setDisplayName(ChatColor.translateAlternateColorCodes('&', actualNameWithFormatting));
                     player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', lpPrefix + actualNameWithFormatting));
@@ -190,13 +203,7 @@ public class Main extends JavaPlugin implements Listener {
                 actualNames.putIfAbsent(player.getUniqueId(), currentName);
                 //Load that name into a var.
                 actualName = actualNames.get(player.getUniqueId());
-                String nickNameWithFormatting = player.getDisplayName().replace(currentName, nickName);
-                //If setting a nickname, put a ~ in front of the name.
-                if (!(actualName.equals(nickName))) {
-                    if (player.getDisplayName().charAt(0) != '~') {
-                        nickNameWithFormatting = "~" + player.getDisplayName().replace(currentName, nickName);
-                    }
-                }
+                String nickNameWithFormatting = "~" + player.getDisplayName().replace(currentName, nickName).replaceAll("~", "");
                 //Set the new nickname in the chat and tablist.
                 player.setDisplayName(ChatColor.translateAlternateColorCodes('&', nickNameWithFormatting));
                 player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', lpPrefix + nickNameWithFormatting));
@@ -237,20 +244,23 @@ public class Main extends JavaPlugin implements Listener {
         //Get slot # of item clicked.
         int eventSlot = event.getSlot();
         String itemDisplayName = event.getCurrentItem().getItemMeta().getDisplayName();
-
+        int offset = 0;
+        if (playerName.charAt(0) == '~') {
+            offset = 1;
+        }
         if (eventSlot <= 16) { //Colours
             //Get colour to apply to name.
             ChatColor color = ChatColor.values()[eventSlot];
             String reformattedName = "";
-            if (playerName.substring(0, 2).matches("§([0-9]|[a-f])")) { //Does name already have colour applied?
+            if (playerName.substring(offset, 2 + offset).matches("§([0-9]|[a-f])")) { //Does name already have colour applied?
                 //Replace that colour.
-                reformattedName = color + playerName.substring(2);
-            } else if (playerName.substring(0, 2).matches("§[k-r]")) { //Does name already have effect applied?
+                reformattedName = playerName.substring(0, offset) + color + playerName.substring(2 + offset);
+            } else if (playerName.substring(offset, 2+ offset).matches("§[k-r]")) { //Does name already have effect applied?
                 //Place colour before effect (needed to work).
                 reformattedName = color + playerName;
             } else {
                 //Otherwise, there's nothing applied so just add to the front of the name.
-                reformattedName = color + playerName.replaceAll("§.", "");
+                reformattedName = playerName.substring(0, offset) + color + playerName.substring(offset).replaceAll("§.", "");
             }
             //Set that new coloured name in the chat and tablist.
             player.setDisplayName(ChatColor.translateAlternateColorCodes('&', reformattedName + ChatColor.RESET));
@@ -259,9 +269,9 @@ public class Main extends JavaPlugin implements Listener {
         } else if (eventSlot >=27 && eventSlot <= 32) { //Effects
             String effect = itemDisplayName.substring(0, 2);
             String reformattedName = "";
-            if (playerName.substring(0, 2).matches("§([0-9]|[a-f])")) { //Does name already have colour applied?
+            if (playerName.substring(offset, 2 + offset).matches("§([0-9]|[a-f])")) { //Does name already have colour applied?
                 //Put effect after colour (needed to work).
-                reformattedName = playerName.substring(0, 2) + effect + playerName.substring(2);
+                reformattedName = playerName.substring(0, 2 + offset) + effect + playerName.substring(2 + offset);
             } else {
                 //Otherwise, no effect applied so just add to the front of the name.
                 reformattedName = effect + playerName.replaceAll("§.", "");
