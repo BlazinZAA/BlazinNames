@@ -38,6 +38,8 @@ import me.arcaniax.hdb.api.DatabaseLoadEvent;
 import net.luckperms.api.LuckPerms;
 import net.luckperms.api.LuckPermsProvider;
 import net.luckperms.api.model.group.Group;
+import org.bukkit.scoreboard.*;
+import org.bukkit.scoreboard.Scoreboard;
 
 
 public class Main extends JavaPlugin implements Listener {
@@ -138,14 +140,30 @@ public class Main extends JavaPlugin implements Listener {
         if (prefix == null) {
             prefix = "";
         }
+
         player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', prefix + formattedName));
-        setNameplate(player, prefix, formattedName);
+        setScoreboardTeam(player);
+        setNameplate(player, formattedName);
     }
 
-    public void setNameplate(Player player, String prefix, String name) {
+    public void setScoreboardTeam(Player player) {
+        Scoreboard sb = getServer().getScoreboardManager().getMainScoreboard();
+        Team team = sb.getTeam(lpAPI.getUserManager().getUser(player.getUniqueId()).getPrimaryGroup());
+        String playerName = player.getDisplayName();
+        team.addEntry(playerName);
+        getLogger().info("Adding " + playerName + " to Scoreboard Team " + team.getName());
+    }
+
+    public void setNameplate(Player player, String name) {
+
         for (Player onlinePlayer : getServer().getOnlinePlayers()) {
             if (onlinePlayer == player) continue;
-            PacketPlayOutScoreboardTeam plPacket = new PacketPlayOutScoreboardTeam();
+
+            String prefix = lpAPI.getUserManager().getUser(onlinePlayer.getUniqueId()).getCachedData().getMetaData().getPrefix();
+            if (prefix == null) {
+                prefix = "";
+            }
+
             //REMOVES THE PLAYER
             ((CraftPlayer) onlinePlayer).getHandle().playerConnection.sendPacket(new PacketPlayOutPlayerInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.REMOVE_PLAYER, ((CraftPlayer) player).getHandle()));
             //CHANGES THE PLAYER'S GAME PROFILE
@@ -159,16 +177,10 @@ public class Main extends JavaPlugin implements Listener {
                 modifiersField.setInt(nameField, nameField.getModifiers() & ~Modifier.FINAL);
                 nameField.set(gp, name);
 
-                Field prefixField = plPacket.getClass().getDeclaredField("c");
-                prefixField.setAccessible(true);
-                IChatBaseComponent icbcPrefix = new ChatMessage(ChatColor.translateAlternateColorCodes('&', prefix));
-                prefixField.set(plPacket, icbcPrefix);
-
-                ((CraftPlayer) onlinePlayer).getHandle().playerConnection.sendPacket(plPacket);
                 ((CraftPlayer) onlinePlayer).getHandle().playerConnection.sendPacket(new PacketPlayOutPlayerInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.ADD_PLAYER, ((CraftPlayer) player).getHandle()));
                 ((CraftPlayer) onlinePlayer).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(player.getEntityId()));
                 ((CraftPlayer) onlinePlayer).getHandle().playerConnection.sendPacket(new PacketPlayOutNamedEntitySpawn(((CraftPlayer) player).getHandle()));
-                
+
             } catch (IllegalAccessException | NoSuchFieldException ex) {
                 throw new IllegalStateException(ex);
             }
@@ -184,6 +196,27 @@ public class Main extends JavaPlugin implements Listener {
         lpAPI = LuckPermsProvider.get();
         hdbAPI = new HeadDatabaseAPI();
         createInv();
+        createTeams();
+    }
+
+    public void createTeams() {
+        Scoreboard sb = getServer().getScoreboardManager().getMainScoreboard();
+        Set<Group> groups = lpAPI.getGroupManager().getLoadedGroups();
+        for (Group group : groups) {
+            String groupName = group.getName();
+            Team team = sb.getTeam(groupName);
+            if (team == null) {
+                team = sb.registerNewTeam(groupName);
+            }
+            String prefix = group.getCachedData().getMetaData().getPrefix();
+            if (prefix == null) {
+                prefix = "";
+            }
+            team.setPrefix(ChatColor.translateAlternateColorCodes('&', prefix));
+            getLogger().info("Setting up Scoreboard Team for " + groupName);
+        }
+
+
     }
 
     /**
@@ -192,7 +225,6 @@ public class Main extends JavaPlugin implements Listener {
      */
     public void createInv() {
         inv = Bukkit.createInventory(null, 54, ChatColor.DARK_GRAY + "" + "Select Name Color");
-
         //Iterate through colours (0 - 16 in ChatColour.values()). Correspond directly to colouredConcreteArr.
         for (int x = 0; x < 16; x++) {
             ItemStack colorBlock = new ItemStack(colouredConcreteArr.get(x), 1);
@@ -247,8 +279,11 @@ public class Main extends JavaPlugin implements Listener {
         String actualName = actualNames.get(player.getUniqueId());
         //Get unformatted current player name.
         String currentName = player.getDisplayName().replaceAll("§.|~", "");
-        //Use the luck perms API to fetch the users rank chat prefix.
+        //Get prefix from luckperms API
         String prefix = lpAPI.getUserManager().getUser(player.getUniqueId()).getCachedData().getMetaData().getPrefix();
+        if (prefix == null) {
+            prefix = "";
+        }
         if (label.equalsIgnoreCase("NameColor") || label.equalsIgnoreCase("Color")) { //color, namecolor
             player.openInventory(inv);
         } else if (label.equalsIgnoreCase("Nickname") || label.equalsIgnoreCase("Nick")) { //nickname, nick
@@ -257,9 +292,10 @@ public class Main extends JavaPlugin implements Listener {
                     //Apply formatting to real name.
                     String actualNameWithFormatting = player.getDisplayName().replaceAll(currentName, actualName).replaceAll("~", "");
                     //Reset the nickname in the chat and tablist.
-                    player.setDisplayName(ChatColor.translateAlternateColorCodes('&', actualNameWithFormatting));
-                    player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', prefix + actualNameWithFormatting));
-                    setNameplate(player, prefix, actualNameWithFormatting);
+                    player.setDisplayName(ChatColor.translateAlternateColorCodes('&', actualNameWithFormatting + ChatColor.RESET));
+                    player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', prefix + actualNameWithFormatting + ChatColor.RESET));
+                    setScoreboardTeam(player);
+                    setNameplate(player, actualNameWithFormatting);
                     player.sendMessage(chatOutputPrefix + "Your nickname was reset!");
                 } else {
                     player.sendMessage(chatOutputPrefix + "You do not have a nickname set. Type /" + label + " §onickname§r to set a nickname.");
@@ -276,9 +312,10 @@ public class Main extends JavaPlugin implements Listener {
                     //Apply formatting to real name.
                     String actualNameWithFormatting = player.getDisplayName().replaceAll(currentName, actualName).replaceAll("~", "");
                     //Reset the nickname in the chat and tablist.
-                    player.setDisplayName(ChatColor.translateAlternateColorCodes('&', actualNameWithFormatting));
-                    player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', prefix + actualNameWithFormatting));
-                    setNameplate(player, prefix, actualNameWithFormatting);
+                    player.setDisplayName(ChatColor.translateAlternateColorCodes('&', actualNameWithFormatting + ChatColor.RESET));
+                    player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', prefix + actualNameWithFormatting + ChatColor.RESET));
+                    setScoreboardTeam(player);
+                    setNameplate(player, actualNameWithFormatting);
                     player.sendMessage(chatOutputPrefix + "Your nickname was reset!");
                 } else {
                     player.sendMessage(chatOutputPrefix + "You do not have a nickname set.");
@@ -287,21 +324,32 @@ public class Main extends JavaPlugin implements Listener {
                 //If not already exists, add users un-nickedname to the actualNames HashMap for future reference.
                 actualNames.putIfAbsent(player.getUniqueId(), currentName);
                 //Load that name into a var.
-                actualName = actualNames.get(player.getUniqueId());
                 String nickNameWithFormatting = "~" + player.getDisplayName().replace(currentName, nickName).replaceAll("~", "");
                 //Set the new nickname in the chat and tablist.
-                player.setDisplayName(ChatColor.translateAlternateColorCodes('&', nickNameWithFormatting));
-                player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', prefix + nickNameWithFormatting));
+                player.setDisplayName(ChatColor.translateAlternateColorCodes('&', nickNameWithFormatting + ChatColor.RESET));
+                player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', prefix + nickNameWithFormatting + ChatColor.RESET));
                 player.sendMessage(chatOutputPrefix + "Your nickname was set to " + nickNameWithFormatting + "! Type /" + label + " §rreset to reset it at any time.");
                 //Update in the customNames HashMap.
                 customNames.put(player.getUniqueId(), player.getDisplayName());
-                setNameplate(player, prefix, nickNameWithFormatting);
+                setScoreboardTeam(player);
+                setNameplate(player, nickNameWithFormatting);
             } else { //Does not conform to regex - error out.
                 sender.sendMessage(chatOutputPrefix + ChatColor.RED + "Nicknames must be alphanumeric and between 3-16 characters. The only special symbol allowed is _.");
             }
         }
         return true;
     }
+
+    public void applyFormatting(Player player, String reformattedName, String prefix) {
+        if (customNames.get(player.getUniqueId()) != null) {
+            reformattedName = ChatColor.translateAlternateColorCodes('&', customNames.get(player.getUniqueId()));
+        }
+        player.setDisplayName(ChatColor.translateAlternateColorCodes('&', reformattedName));
+        player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', prefix + reformattedName));
+        setScoreboardTeam(player);
+        setNameplate(player, reformattedName);
+    }
+
 
     /**
      * Wait for a user to click one of the colours / effects in the menu. Apply the effect to the player name.
@@ -316,14 +364,16 @@ public class Main extends JavaPlugin implements Listener {
         } else if (event.getClickedInventory() != inv) { //Not the correct inventory clicked?
             return;
         }
-        event.setCancelled(true);
         Player player = (Player) event.getWhoClicked();
         //Get player name and replace all reset markers to prevent long chain.
         String playerName = player.getDisplayName().replaceAll("§r", "");
-        //Use the luck perms API to fetch the users rank chat prefix.
-        String prefix = lpAPI.getUserManager().getUser(player.getUniqueId()).getCachedData().getMetaData().getPrefix();
         //Get slot # of item clicked.
         int eventSlot = event.getSlot();
+        //Get prefix from luckperms API
+        String prefix = lpAPI.getUserManager().getUser(player.getUniqueId()).getCachedData().getMetaData().getPrefix();
+        if (prefix == null) {
+            prefix = "";
+        }
         String itemDisplayName = event.getCurrentItem().getItemMeta().getDisplayName();
         int offset = 0;
         if (playerName.charAt(0) == '~') {
@@ -332,10 +382,10 @@ public class Main extends JavaPlugin implements Listener {
         if (eventSlot <= 16) { //Colours
             //Get colour to apply to name.
             ChatColor color = ChatColor.values()[eventSlot];
-            String reformattedName = "";
+            String reformattedName = color + player.getDisplayName().replace(player.getDisplayName(), color + player.getDisplayName());
             if (playerName.substring(offset, 2 + offset).matches("§([0-9]|[a-f])")) { //Does name already have colour applied?
                 //Replace that colour.
-                reformattedName = playerName.substring(0, offset) + color + playerName.substring(2 + offset);
+                reformattedName = playerName.replaceAll("§([0-9]|[a-f])", color.toString());
             } else if (playerName.substring(offset, 2 + offset).matches("§[k-r]")) { //Does name already have effect applied?
                 //Place colour before effect (needed to work).
                 reformattedName = color + playerName;
@@ -346,7 +396,8 @@ public class Main extends JavaPlugin implements Listener {
             //Set that new coloured name in the chat and tablist.
             player.setDisplayName(ChatColor.translateAlternateColorCodes('&', reformattedName + ChatColor.RESET));
             player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', prefix + reformattedName + ChatColor.RESET));
-            setNameplate(player, prefix, reformattedName);
+            customNames.put(player.getUniqueId(), player.getDisplayName());
+            applyFormatting(player, reformattedName, prefix);
             player.sendMessage(chatOutputPrefix + "You changed the color of your name. Your new name is " + reformattedName);
         } else if (eventSlot >= 27 && eventSlot <= 32) { //Effects
             String effect = itemDisplayName.substring(0, 2);
@@ -361,20 +412,21 @@ public class Main extends JavaPlugin implements Listener {
             //Set that name with effects in the chat and tablist.
             player.setDisplayName(ChatColor.translateAlternateColorCodes('&', reformattedName + ChatColor.RESET));
             player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', prefix + reformattedName + ChatColor.RESET));
-            setNameplate(player, prefix, reformattedName);
+            customNames.put(player.getUniqueId(), player.getDisplayName());
+            applyFormatting(player, reformattedName, prefix);
             player.sendMessage(chatOutputPrefix + "You applied an effect to your name. Your new name is " + reformattedName);
         } else if (eventSlot == 33) { //Reset
             //Remove all formatting and apply to chat and tablist.
             String resetName = playerName.replaceAll("§.", "");
             player.setDisplayName(ChatColor.translateAlternateColorCodes('&', resetName));
             player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', prefix + resetName));
-            setNameplate(player, prefix, resetName);
+            setScoreboardTeam(player);
+            setNameplate(player, resetName);
             player.sendMessage(chatOutputPrefix + "Your name's colour and effects have been reset!");
         } else if (eventSlot == 45) { //Close
             player.closeInventory();
         }
         //Update customNames HashMap with new name and close the inventory.
-        customNames.put(player.getUniqueId(), player.getDisplayName());
         player.closeInventory();
 
     }
