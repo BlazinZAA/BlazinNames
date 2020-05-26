@@ -5,6 +5,7 @@ import java.lang.reflect.Modifier;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
+import com.Zrips.CMI.CMI;
 import com.mojang.authlib.GameProfile;
 import me.arcaniax.hdb.api.HeadDatabaseAPI;
 import net.luckperms.api.model.user.User;
@@ -48,11 +49,11 @@ public class Main extends JavaPlugin implements Listener {
     public static Map<UUID, String> customNames = new HashMap<>();
     //HashMap of all UUID->Original Names. Used when resetting nickname.
     public static Map<UUID, String> actualNames = new HashMap<>();
-
     public DataManager data;
     public Inventory inv;
     public HeadDatabaseAPI hdbAPI;
     public LuckPerms lpAPI;
+    public CMI cmiAPI;
     final public String chatOutputPrefix = ChatColor.GRAY + "[" + ChatColor.GOLD + "B" + ChatColor.RED + "N" + ChatColor.GRAY + "] " + ChatColor.RESET;
     //ArrayList of all concrete colours to be used for colour selection.
     final public ArrayList<Material> colouredConcreteArr = new ArrayList<Material>(Arrays.asList(
@@ -81,6 +82,91 @@ public class Main extends JavaPlugin implements Listener {
             "32820", //UNDERLINE
             "32821" //ITALIC
     ));
+
+    /**
+     * Wait for SQL database to load completely, then initialise session with HeadDatabase API, and LuckPerms API.
+     * Create Inventory containing colours and effects.
+     */
+    @EventHandler
+    public void onDatabaseLoad(DatabaseLoadEvent e) {
+        lpAPI = LuckPermsProvider.get();
+        hdbAPI = new HeadDatabaseAPI();
+        cmiAPI = CMI.getInstance();
+        createInv();
+        lpListener();
+    }
+
+    /**
+     * Generate the inventory containing colours and effects.
+     * Called onDatabaseLoad.
+     */
+    public void createInv() {
+        inv = Bukkit.createInventory(null, 54, ChatColor.DARK_GRAY + "" + "Select Name Color");
+        //Iterate through colours (0 - 16 in ChatColour.values()). Correspond directly to colouredConcreteArr.
+        for (int x = 0; x < 16; x++) {
+            ItemStack colorBlock = new ItemStack(colouredConcreteArr.get(x), 1);
+            ItemMeta colorBlockMeta = (ItemMeta) colorBlock.getItemMeta();
+            //Set the display name of the item.
+            colorBlockMeta.setDisplayName(ChatColor.values()[x] + ChatColor.values()[x].getName().replaceAll("_", " ").toUpperCase());
+            colorBlock.setItemMeta(colorBlockMeta);
+            //Add to pos x in inventory.
+            inv.setItem(x, colorBlock);
+        }
+
+        //Iterate through colours (0 - 16 in ChatColour.values()). Correspond directly to miscEffectsItems.
+        for (int x = 16; x < 20; x++) {
+            ItemStack item = hdbAPI.getItemHead(miscEffectItems.get(x - 16));
+            ItemMeta itemMeta = (ItemMeta) item.getItemMeta();
+            itemMeta.setDisplayName(ChatColor.values()[x] + ChatColor.values()[x].getName().toUpperCase());
+            item.setItemMeta(itemMeta);
+            inv.setItem(x + 11, item);
+        }
+
+        //Use the HeadDatabase API to get reset item head.
+        ItemStack resetItem = hdbAPI.getItemHead("32823");
+        ItemMeta resetItemMeta = (ItemMeta) resetItem.getItemMeta();
+        resetItemMeta.setDisplayName("* RESET *");
+        resetItem.setItemMeta(resetItemMeta);
+        inv.setItem(33, resetItem);
+
+        //Same as above but for close item head.
+        ItemStack closeItem = hdbAPI.getItemHead("26417");
+        ItemMeta closeItemMeta = (ItemMeta) closeItem.getItemMeta();
+        closeItemMeta.setDisplayName("CLOSE");
+        closeItem.setItemMeta(closeItemMeta);
+        inv.setItem(45, closeItem);
+    }
+
+    public void lpListener() {
+        // get the LuckPerms event bus
+        EventBus eventBus = lpAPI.getEventBus();
+        // subscribe to an event using a lambda
+        eventBus.subscribe(LogPublishEvent.class, e -> e.setCancelled(true));
+        eventBus.subscribe(UserLoadEvent.class, e -> {
+            System.out.println("User " + e.getUser().getUsername() + " was loaded!");
+            // TODO: do something else...
+        });
+        // subscribe to an event using a method reference
+        eventBus.subscribe(UserPromoteEvent.class, this::onUserPromote);
+        eventBus.subscribe(UserDemoteEvent.class, this::onUserDemote);
+    }
+
+
+    private void onUserPromote(UserPromoteEvent event) {
+        Plugin plugin = this;
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            Player player = Bukkit.getPlayer(event.getUser().getUniqueId());
+            setPrefixToRank(player);
+        });
+    }
+
+    private void onUserDemote(UserDemoteEvent event) {
+        Plugin plugin = this;
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            Player player = Bukkit.getPlayer(event.getUser().getUniqueId());
+            setPrefixToRank(player);
+        });
+    }
 
     /**
      * Wait for plugin to be enabled (server start).
@@ -136,15 +222,47 @@ public class Main extends JavaPlugin implements Listener {
         if (customNames.get(player.getUniqueId()) != null) {
             formattedName = ChatColor.translateAlternateColorCodes('&', customNames.get(player.getUniqueId()));
         }
+        applyFormatting(player, formattedName);
+    }
+
+    /**
+     * Applies formatting to a players nameplate, tablist, and chat names.
+     *
+     * @param player        The player to apply formatting to.
+     * @param formattedName The formatted name.
+     */
+    public void applyFormatting(Player player, String formattedName) {
+        //Get prefix from luckperms API
         String prefix = lpAPI.getUserManager().getUser(player.getUniqueId()).getCachedData().getMetaData().getPrefix();
         if (prefix == null) {
             prefix = "";
         }
-
-        applyFormatting(player, formattedName, prefix);
-        setPrefixToRank(player);
+        if (customNames.get(player.getUniqueId()) != null) {
+            formattedName = ChatColor.translateAlternateColorCodes('&', customNames.get(player.getUniqueId())).replaceAll("§r", "");
+        }
+        player.setDisplayName(formattedName + ChatColor.RESET);
+        player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', prefix + formattedName));
+        splitName(player, formattedName, prefix);
     }
 
+    public void splitName(Player player, String formattedName, String prefix) {
+        int formattedNameLength = formattedName.length();
+        if (formattedNameLength > 16) {
+            String nameEntry = formattedName.substring(0, 16);
+            String suffixEntry = formattedName.substring(16, formattedNameLength);
+            if (formattedName.charAt(16) == '§') {
+                nameEntry = formattedName.substring(0, 15);
+                suffixEntry = formattedName.substring(15, formattedNameLength);
+            }
+            setSuffix(player, suffixEntry);
+            setNameplate(player, nameEntry);
+        } else {
+            setNameplate(player, formattedName);
+        }
+        setPrefixToRank(player);
+        cmiAPI.getPlayerManager().getUser(player).updatePrefix();
+        cmiAPI.getPlayerManager().getUser(player).updateSuffix();
+    }
 
     public void setPrefixToRank(Player player) {
         String executingUser = actualNames.get(player.getUniqueId());
@@ -155,7 +273,7 @@ public class Main extends JavaPlugin implements Listener {
         if (prefix == null) {
             prefix = "";
         }
-        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "cmi nameplate " + executingUser + " -pref:" + prefix);
+        cmiAPI.getPlayerManager().getUser(player).setNamePlatePrefix(prefix);
     }
 
     public void setSuffix(Player player, String suffix) {
@@ -163,18 +281,12 @@ public class Main extends JavaPlugin implements Listener {
         if (executingUser == null) {
             executingUser = player.getDisplayName();
         }
-        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "cmi nameplate " + executingUser + " -suf:" + suffix);
+        cmiAPI.getPlayerManager().getUser(player).setNamePlateSuffix(suffix);
     }
 
     public void setNameplate(Player player, String name) {
         for (Player onlinePlayer : getServer().getOnlinePlayers()) {
             if (onlinePlayer == player) continue;
-
-            String prefix = lpAPI.getUserManager().getUser(onlinePlayer.getUniqueId()).getCachedData().getMetaData().getPrefix();
-            if (prefix == null) {
-                prefix = "";
-            }
-
             //REMOVES THE PLAYER
             ((CraftPlayer) onlinePlayer).getHandle().playerConnection.sendPacket(new PacketPlayOutPlayerInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.REMOVE_PLAYER, ((CraftPlayer) player).getHandle()));
             //CHANGES THE PLAYER'S GAME PROFILE
@@ -198,94 +310,6 @@ public class Main extends JavaPlugin implements Listener {
         }
     }
 
-
-    /**
-     * Wait for SQL database to load completely, then initialise session with HeadDatabase API, and LuckPerms API.
-     * Create Inventory containing colours and effects.
-     */
-    @EventHandler
-    public void onDatabaseLoad(DatabaseLoadEvent e) {
-        lpAPI = LuckPermsProvider.get();
-        hdbAPI = new HeadDatabaseAPI();
-        createInv();
-        lpListener();
-    }
-
-
-    /**
-     * Generate the inventory containing colours and effects.
-     * Called onDatabaseLoad.
-     */
-    public void createInv() {
-        inv = Bukkit.createInventory(null, 54, ChatColor.DARK_GRAY + "" + "Select Name Color");
-        //Iterate through colours (0 - 16 in ChatColour.values()). Correspond directly to colouredConcreteArr.
-        for (int x = 0; x < 16; x++) {
-            ItemStack colorBlock = new ItemStack(colouredConcreteArr.get(x), 1);
-            ItemMeta colorBlockMeta = (ItemMeta) colorBlock.getItemMeta();
-            //Set the display name of the item.
-            colorBlockMeta.setDisplayName(ChatColor.values()[x] + ChatColor.values()[x].getName().replaceAll("_", " ").toUpperCase());
-            colorBlock.setItemMeta(colorBlockMeta);
-            //Add to pos x in inventory.
-            inv.setItem(x, colorBlock);
-        }
-
-        //Iterate through colours (0 - 16 in ChatColour.values()). Correspond directly to miscEffectsItems.
-        for (int x = 16; x < 21; x++) {
-            ItemStack item = hdbAPI.getItemHead(miscEffectItems.get(x - 16));
-            ItemMeta itemMeta = (ItemMeta) item.getItemMeta();
-            itemMeta.setDisplayName(ChatColor.values()[x] + ChatColor.values()[x].getName().toUpperCase());
-            item.setItemMeta(itemMeta);
-            inv.setItem(x + 11, item);
-        }
-
-        //Use the HeadDatabase API to get reset item head.
-        ItemStack resetItem = hdbAPI.getItemHead("32823");
-        ItemMeta resetItemMeta = (ItemMeta) resetItem.getItemMeta();
-        resetItemMeta.setDisplayName("* RESET *");
-        resetItem.setItemMeta(resetItemMeta);
-        inv.setItem(33, resetItem);
-
-        //Same as above but for close item head.
-        ItemStack closeItem = hdbAPI.getItemHead("26417");
-        ItemMeta closeItemMeta = (ItemMeta) closeItem.getItemMeta();
-        closeItemMeta.setDisplayName("CLOSE");
-        closeItem.setItemMeta(closeItemMeta);
-        inv.setItem(45, closeItem);
-    }
-
-
-    public void lpListener() {
-        // get the LuckPerms event bus
-        EventBus eventBus = lpAPI.getEventBus();
-        // subscribe to an event using a lambda
-        eventBus.subscribe(LogPublishEvent.class, e -> e.setCancelled(true));
-        eventBus.subscribe(UserLoadEvent.class, e -> {
-            System.out.println("User " + e.getUser().getUsername() + " was loaded!");
-            // TODO: do something else...
-        });
-        // subscribe to an event using a method reference
-        eventBus.subscribe(UserPromoteEvent.class, this::onUserPromote);
-        eventBus.subscribe(UserDemoteEvent.class, this::onUserDemote);
-    }
-
-
-    private void onUserPromote(UserPromoteEvent event) {
-        Plugin plugin = this;
-        Bukkit.getScheduler().runTask(plugin, () -> {
-            Player player = Bukkit.getPlayer(event.getUser().getUniqueId());
-            setPrefixToRank(player);
-        });
-    }
-    private void onUserDemote(UserDemoteEvent event) {
-        Plugin plugin = this;
-        Bukkit.getScheduler().runTask(plugin, () -> {
-            Player player = Bukkit.getPlayer(event.getUser().getUniqueId());
-            setPrefixToRank(player);
-        });
-    }
-
-
-
     /**
      * Waits for a new command.
      * /color, /namecolor - Open the colour change menu.
@@ -303,88 +327,50 @@ public class Main extends JavaPlugin implements Listener {
         //Get users real name from actualNames HashMap.
         String actualName = actualNames.get(player.getUniqueId());
         //Get unformatted current player name.
-        String currentName = player.getDisplayName().replaceAll("§.|~", "");
-        //Get prefix from luckperms API
-        String prefix = lpAPI.getUserManager().getUser(player.getUniqueId()).getCachedData().getMetaData().getPrefix();
-        if (prefix == null) {
-            prefix = "";
-        }
+        String currentName = player.getDisplayName().replaceAll("§.", "");
         if (label.equalsIgnoreCase("NameColor") || label.equalsIgnoreCase("Color")) { //color, namecolor
             player.openInventory(inv);
         } else if (label.equalsIgnoreCase("Nickname") || label.equalsIgnoreCase("Nick")) { //nickname, nick
+            //Load new nickname from args.
+            String nickName;
             if (args.length == 0) {
+                nickName = "Reset";
+            } else if (args.length == 1) {
+                nickName = args[0];
+            } else {
+                player.sendMessage(chatOutputPrefix + ChatColor.RED + "Invalid command syntax. The correct syntax is /" + label + " §onickname§r.");
+                return true;
+            }
+            if (nickName.equalsIgnoreCase("Reset")) {
                 if (actualName != null) {
                     //Apply formatting to real name.
-                    String actualNameWithFormatting = player.getDisplayName().replaceAll(currentName, actualName).replaceAll("~", "");
+                    String actualNameWithFormatting = player.getDisplayName().replaceAll(currentName, actualName).replaceAll("§o", "");
                     //Reset the nickname in the chat and tablist.
                     customNames.put(player.getUniqueId(), actualNameWithFormatting);
-                    applyFormatting(player, actualNameWithFormatting, prefix);
+                    applyFormatting(player, actualNameWithFormatting);
                     setSuffix(player, "");
+                    actualNames.remove(player.getUniqueId());
                     player.sendMessage(chatOutputPrefix + "Your nickname was reset!");
                 } else {
                     player.sendMessage(chatOutputPrefix + "You do not have a nickname set. Type /" + label + " §onickname§r to set a nickname.");
                 }
                 return true;
             }
-            if (args.length > 1) { //Invalid number of args? Show error.
-                player.sendMessage(chatOutputPrefix + ChatColor.RED + "Invalid command syntax. The correct syntax is /" + label + " §onickname§r.");
-            }
-            //Load new nickname from args.
-            String nickName = args[0];
-            if (nickName.equalsIgnoreCase("Reset")) { //Resetting nickname.
-                if (actualName != null) {
-                    //Apply formatting to real name.
-                    String actualNameWithFormatting = player.getDisplayName().replaceAll(currentName, actualName).replaceAll("~", "");
-                    //Reset the nickname in the chat and tablist.
-                    customNames.put(player.getUniqueId(), actualNameWithFormatting);
-                    applyFormatting(player, actualNameWithFormatting + ChatColor.RESET, prefix);
-                    setSuffix(player, "");
-                    player.sendMessage(chatOutputPrefix + "Your nickname was reset!");
-                } else {
-                    player.sendMessage(chatOutputPrefix + "You do not have a nickname set.");
-                }
-            } else if (nickName.matches("([A-Za-z0-9]|_){3,16}")) { //Regex to check if name entered matches minecraft naming conventions.
+            if (nickName.matches("([A-Za-z0-9]|_){3,16}")) { //Regex to check if name entered matches minecraft naming conventions.
                 //If not already exists, add users un-nickedname to the actualNames HashMap for future reference.
                 actualNames.putIfAbsent(player.getUniqueId(), currentName);
                 //Load that name into a var.
-                String nickNameWithFormatting = "~" + player.getDisplayName().replace(currentName, nickName).replaceAll("~", "");
+                String nickNameWithFormatting = ChatColor.ITALIC + player.getDisplayName().replace(currentName, nickName);
                 //Set the new nickname in the chat and tablist.
                 player.sendMessage(chatOutputPrefix + "Your nickname was set to " + nickNameWithFormatting + "! Type /" + label + " §rreset to reset it at any time.");
                 //Update in the customNames HashMap.
                 customNames.put(player.getUniqueId(), nickNameWithFormatting);
-                applyFormatting(player, nickNameWithFormatting + ChatColor.RESET, prefix);
+                applyFormatting(player, nickNameWithFormatting);
             } else { //Does not conform to regex - error out.
                 sender.sendMessage(chatOutputPrefix + ChatColor.RED + "Nicknames must be alphanumeric and between 3-16 characters. The only special symbol allowed is _.");
             }
         }
         return true;
-    }
-
-    public void applyFormatting(Player player, String formattedName, String prefix) {
-        if (customNames.get(player.getUniqueId()) != null) {
-            formattedName = ChatColor.translateAlternateColorCodes('&', customNames.get(player.getUniqueId()));
-        }
-        player.setDisplayName(ChatColor.translateAlternateColorCodes('&', formattedName));
-        player.setPlayerListName(ChatColor.translateAlternateColorCodes('&', prefix + formattedName));
-        splitName(player, formattedName, prefix);
-    }
-
-    public void splitName(Player player, String formattedName, String prefix) {
-        int formattedNameLength = formattedName.length();
-        if (formattedNameLength > 16) {
-            String nameEntry = formattedName.substring(0, 16);
-            String suffixEntry = formattedName.substring(16, formattedNameLength);
-            if (formattedName.charAt(16) == '§') {
-                nameEntry = formattedName.substring(0, 15);
-                suffixEntry = formattedName.substring(15, formattedNameLength);
-            }
-            setSuffix(player, suffixEntry);
-            getLogger().info(nameEntry + "|" + suffixEntry);
-            setNameplate(player, nameEntry);
-        } else {
-            setNameplate(player, formattedName);
-        }
-        setPrefixToRank(player);
     }
 
     /**
@@ -405,49 +391,36 @@ public class Main extends JavaPlugin implements Listener {
         String playerName = player.getDisplayName().replaceAll("§r", "");
         //Get slot # of item clicked.
         int eventSlot = event.getSlot();
-        //Get prefix from luckperms API
-        String prefix = lpAPI.getUserManager().getUser(player.getUniqueId()).getCachedData().getMetaData().getPrefix();
-        if (prefix == null) {
-            prefix = "";
-        }
         String itemDisplayName = event.getCurrentItem().getItemMeta().getDisplayName();
-        int offset = 0;
-        if (playerName.charAt(0) == '~') {
-            offset = 1;
-        }
         if (eventSlot <= 16) { //Colours
             //Get colour to apply to name.
             ChatColor color = ChatColor.values()[eventSlot];
             String reformattedName = color + player.getDisplayName().replace(player.getDisplayName(), color + player.getDisplayName());
             reformattedName = color + playerName.replaceAll("§([0-9]|[a-f])", "");
-            //Set that new coloured name in the chat and tablist.
             customNames.put(player.getUniqueId(), reformattedName);
-            applyFormatting(player, reformattedName + ChatColor.RESET, prefix);
+            applyFormatting(player, reformattedName);
             player.sendMessage(chatOutputPrefix + "You changed the color of your name. Your new name is " + reformattedName);
-        } else if (eventSlot >= 27 && eventSlot <= 32) { //Effects
+        } else if (eventSlot >= 27 && eventSlot <= 31) { //Effects
             String effect = itemDisplayName.substring(0, 2);
-            String reformattedName = "";
-            if (playerName.substring(offset, 2 + offset).matches("§([0-9]|[a-f])")) { //Does name already have colour applied?
+            String reformattedName = playerName;
+            if (playerName.substring(0, 2).matches("§([0-9]|[a-f])")) { //Does name already have colour applied?
                 //Put effect after colour (needed to work).
-                reformattedName = playerName.substring(0, 2 + offset) + effect + playerName.substring(2 + offset);
-            } else {
+                reformattedName = playerName.substring(0, 2) + effect + playerName.substring(2);
+            } else if (!(playerName.contains(effect))) {
                 //Otherwise, no effect applied so just add to the front of the name.
-                reformattedName = effect + playerName.replaceAll("§.", "");
+                reformattedName = effect + playerName;
             }
-            //Set that name with effects in the chat and tablist.
             customNames.put(player.getUniqueId(), reformattedName);
-            applyFormatting(player, reformattedName + ChatColor.RESET, prefix);
+            applyFormatting(player, reformattedName);
             player.sendMessage(chatOutputPrefix + "You applied an effect to your name. Your new name is " + reformattedName);
         } else if (eventSlot == 33) { //Reset
-            //Remove all formatting and apply to chat and tablist.
             String resetName = playerName.replaceAll("§.", "");
             customNames.put(player.getUniqueId(), resetName);
-            applyFormatting(player, resetName + ChatColor.RESET, prefix);
+            applyFormatting(player, resetName);
             player.sendMessage(chatOutputPrefix + "Your name's colour and effects have been reset!");
         } else if (eventSlot == 45) { //Close
             player.closeInventory();
         }
-        //Update customNames HashMap with new name and close the inventory.
         player.closeInventory();
 
     }
