@@ -5,8 +5,6 @@ import java.lang.reflect.Modifier;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
-import com.comphenix.protocol.ProtocolLibrary;
-import com.comphenix.protocol.ProtocolManager;
 import com.mojang.authlib.GameProfile;
 import me.arcaniax.hdb.api.HeadDatabaseAPI;
 import net.luckperms.api.model.user.User;
@@ -26,6 +24,7 @@ import org.bukkit.event.server.ServerCommandEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import net.md_5.bungee.api.ChatColor;
@@ -38,10 +37,11 @@ import me.arcaniax.hdb.api.DatabaseLoadEvent;
 //LuckPerms API import
 import net.luckperms.api.LuckPerms;
 import net.luckperms.api.LuckPermsProvider;
-import net.luckperms.api.model.group.Group;
-import org.bukkit.scoreboard.*;
-import org.bukkit.scoreboard.Scoreboard;
-
+import net.luckperms.api.event.EventBus;
+import net.luckperms.api.event.log.LogPublishEvent;
+import net.luckperms.api.event.user.UserLoadEvent;
+import net.luckperms.api.event.user.track.UserPromoteEvent;
+import net.luckperms.api.event.user.track.UserDemoteEvent;
 
 public class Main extends JavaPlugin implements Listener {
     //HashMap of all custom Names.
@@ -141,40 +141,29 @@ public class Main extends JavaPlugin implements Listener {
             prefix = "";
         }
 
-        createTeam(player);
-        setScoreboardTeam(player);
         applyFormatting(player, formattedName, prefix);
+        setPrefixToRank(player);
     }
 
-    public void createTeam(Player player) {
-        Scoreboard sb = getServer().getScoreboardManager().getMainScoreboard();
-        String groupName = actualNames.get(player.getUniqueId());
-        if (groupName == null) {
-            groupName = player.getDisplayName();
-        }
-        Team team = sb.getTeam(groupName);
-        if (team == null) {
-            team = sb.registerNewTeam(groupName);
+
+    public void setPrefixToRank(Player player) {
+        String executingUser = actualNames.get(player.getUniqueId());
+        if (executingUser == null) {
+            executingUser = player.getDisplayName();
         }
         String prefix = lpAPI.getUserManager().getUser(player.getUniqueId()).getCachedData().getMetaData().getPrefix();
         if (prefix == null) {
             prefix = "";
         }
-        team.setPrefix(ChatColor.translateAlternateColorCodes('&', prefix));
-        getLogger().info("Setting up Scoreboard Team for " + groupName);
+        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "cmi nameplate " + executingUser + " -pref:" + prefix);
     }
 
-
-    public void setScoreboardTeam(Player player) {
-        Scoreboard sb = getServer().getScoreboardManager().getMainScoreboard();
-        String groupName = actualNames.get(player.getUniqueId());
-        if (groupName == null) {
-            groupName = player.getDisplayName();
+    public void setSuffix(Player player, String suffix) {
+        String executingUser = actualNames.get(player.getUniqueId());
+        if (executingUser == null) {
+            executingUser = player.getDisplayName();
         }
-        Team team = sb.getTeam(groupName);
-        String playerName = player.getDisplayName();
-        team.addEntry(playerName);
-        getLogger().info("Adding " + playerName + " to Scoreboard Team " + team.getName());
+        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "cmi nameplate " + executingUser + " -suf:" + suffix);
     }
 
     public void setNameplate(Player player, String name) {
@@ -209,6 +198,7 @@ public class Main extends JavaPlugin implements Listener {
         }
     }
 
+
     /**
      * Wait for SQL database to load completely, then initialise session with HeadDatabase API, and LuckPerms API.
      * Create Inventory containing colours and effects.
@@ -218,6 +208,7 @@ public class Main extends JavaPlugin implements Listener {
         lpAPI = LuckPermsProvider.get();
         hdbAPI = new HeadDatabaseAPI();
         createInv();
+        lpListener();
     }
 
 
@@ -263,6 +254,38 @@ public class Main extends JavaPlugin implements Listener {
     }
 
 
+    public void lpListener() {
+        // get the LuckPerms event bus
+        EventBus eventBus = lpAPI.getEventBus();
+        // subscribe to an event using a lambda
+        eventBus.subscribe(LogPublishEvent.class, e -> e.setCancelled(true));
+        eventBus.subscribe(UserLoadEvent.class, e -> {
+            System.out.println("User " + e.getUser().getUsername() + " was loaded!");
+            // TODO: do something else...
+        });
+        // subscribe to an event using a method reference
+        eventBus.subscribe(UserPromoteEvent.class, this::onUserPromote);
+        eventBus.subscribe(UserDemoteEvent.class, this::onUserDemote);
+    }
+
+
+    private void onUserPromote(UserPromoteEvent event) {
+        Plugin plugin = this;
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            Player player = Bukkit.getPlayer(event.getUser().getUniqueId());
+            setPrefixToRank(player);
+        });
+    }
+    private void onUserDemote(UserDemoteEvent event) {
+        Plugin plugin = this;
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            Player player = Bukkit.getPlayer(event.getUser().getUniqueId());
+            setPrefixToRank(player);
+        });
+    }
+
+
+
     /**
      * Waits for a new command.
      * /color, /namecolor - Open the colour change menu.
@@ -296,7 +319,7 @@ public class Main extends JavaPlugin implements Listener {
                     //Reset the nickname in the chat and tablist.
                     customNames.put(player.getUniqueId(), actualNameWithFormatting);
                     applyFormatting(player, actualNameWithFormatting, prefix);
-
+                    setSuffix(player, "");
                     player.sendMessage(chatOutputPrefix + "Your nickname was reset!");
                 } else {
                     player.sendMessage(chatOutputPrefix + "You do not have a nickname set. Type /" + label + " §onickname§r to set a nickname.");
@@ -315,7 +338,7 @@ public class Main extends JavaPlugin implements Listener {
                     //Reset the nickname in the chat and tablist.
                     customNames.put(player.getUniqueId(), actualNameWithFormatting);
                     applyFormatting(player, actualNameWithFormatting + ChatColor.RESET, prefix);
-
+                    setSuffix(player, "");
                     player.sendMessage(chatOutputPrefix + "Your nickname was reset!");
                 } else {
                     player.sendMessage(chatOutputPrefix + "You do not have a nickname set.");
@@ -355,18 +378,13 @@ public class Main extends JavaPlugin implements Listener {
                 nameEntry = formattedName.substring(0, 15);
                 suffixEntry = formattedName.substring(15, formattedNameLength);
             }
-            Scoreboard sb = getServer().getScoreboardManager().getMainScoreboard();
-            String groupName = actualNames.get(player.getUniqueId());
-            if (groupName == null) {
-                groupName = player.getDisplayName();
-            }
-            Team team = sb.getTeam(groupName);
-            team.setSuffix(suffixEntry);
+            setSuffix(player, suffixEntry);
             getLogger().info(nameEntry + "|" + suffixEntry);
             setNameplate(player, nameEntry);
         } else {
             setNameplate(player, formattedName);
         }
+        setPrefixToRank(player);
     }
 
     /**
@@ -401,9 +419,7 @@ public class Main extends JavaPlugin implements Listener {
             //Get colour to apply to name.
             ChatColor color = ChatColor.values()[eventSlot];
             String reformattedName = color + player.getDisplayName().replace(player.getDisplayName(), color + player.getDisplayName());
-
             reformattedName = color + playerName.replaceAll("§([0-9]|[a-f])", "");
-
             //Set that new coloured name in the chat and tablist.
             customNames.put(player.getUniqueId(), reformattedName);
             applyFormatting(player, reformattedName + ChatColor.RESET, prefix);
