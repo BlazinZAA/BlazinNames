@@ -3,25 +3,20 @@ package net.viedantmc.BlazinNames;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 
 import com.Zrips.CMI.CMI;
 import com.mojang.authlib.GameProfile;
-import me.arcaniax.hdb.api.HeadDatabaseAPI;
-import net.luckperms.api.model.user.User;
 import net.minecraft.server.v1_15_R1.*;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.craftbukkit.v1_15_R1.entity.CraftPlayer;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.server.ServerCommandEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -33,7 +28,6 @@ import net.viedantmc.Files.DataManager;
 
 //HeadDB API import.
 import me.arcaniax.hdb.api.HeadDatabaseAPI;
-import me.arcaniax.hdb.api.DatabaseLoadEvent;
 
 //LuckPerms API import
 import net.luckperms.api.LuckPerms;
@@ -84,17 +78,66 @@ public class Main extends JavaPlugin implements Listener {
     ));
 
     /**
-     * Wait for SQL database to load completely, then initialise session with HeadDatabase API, and LuckPerms API.
-     * Create Inventory containing colours and effects.
+     * Wait for plugin to be enabled (server start).
+     * Fetch contents of YAML and put into customNames and actualNames HashMaps for use elsewhere.
      */
-    @EventHandler
-    public void onDatabaseLoad(DatabaseLoadEvent e) {
+    @Override
+    public void onEnable() {
+        this.data = new DataManager(this);
+        this.getServer().getPluginManager().registerEvents(this, this);
+        this.saveDefaultConfig();
+        if (this.getConfig().contains("customNames")) {
+            this.getConfig().getConfigurationSection("customNames").getKeys(false).forEach(key ->
+                    customNames.put(UUID.fromString(key), this.getConfig().getString("customNames." + key))
+            );
+        }
+        if (this.getConfig().contains("actualNames")) {
+            this.getConfig().getConfigurationSection("actualNames").getKeys(false).forEach(key ->
+                    actualNames.put(UUID.fromString(key), this.getConfig().getString("actualNames." + key))
+            );
+        }
         lpAPI = LuckPermsProvider.get();
         hdbAPI = new HeadDatabaseAPI();
         cmiAPI = CMI.getInstance();
-        createInv();
-        lpListener();
+        if (lpAPI.getUserManager() == null || hdbAPI.getItemHead("1") == null || cmiAPI.getTabListManager() == null) {
+            if (lpAPI.getUserManager() == null) {
+                getLogger().severe("Failed to load LuckPerms API. Check plugin has loaded correctly.");
+            }
+            if (hdbAPI.getItemHead("1") == null) {
+                getLogger().severe("Failed to load HeadDatabase API. Check plugin has loaded correctly.");
+            }
+            if (cmiAPI.getTabListManager() == null) {
+                getLogger().severe("Failed to load CMI API. Check plugin has loaded correctly.");
+            }
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        } else {
+            createInv();
+            //lpListener();
+        }
     }
+
+    /**
+     * Wait for plugin to be disabled (server stop).
+     * Dump HashMap into YAML config. Ensures changes not lost on server restart.
+     */
+    public void onDisable() {
+        if (!customNames.isEmpty()) {
+            for (Map.Entry<UUID, String> entry : customNames.entrySet()) {
+                this.getConfig().set("customNames." + entry.getKey().toString(), entry.getValue());
+            }
+            this.saveConfig();
+        }
+        if (!actualNames.isEmpty()) {
+            for (Map.Entry<UUID, String> entry : actualNames.entrySet()) {
+                this.getConfig().set("actualNames." + entry.getKey().toString(), entry.getValue());
+            }
+            this.saveConfig();
+        }
+    }
+
+
+
 
     /**
      * Generate the inventory containing colours and effects.
@@ -166,46 +209,6 @@ public class Main extends JavaPlugin implements Listener {
             Player player = Bukkit.getPlayer(event.getUser().getUniqueId());
             setPrefixToRank(player);
         });
-    }
-
-    /**
-     * Wait for plugin to be enabled (server start).
-     * Fetch contents of YAML and put into customNames and actualNames HashMaps for use elsewhere.
-     */
-    @Override
-    public void onEnable() {
-        this.data = new DataManager(this);
-        this.getServer().getPluginManager().registerEvents(this, this);
-        this.saveDefaultConfig();
-        if (this.getConfig().contains("customNames")) {
-            this.getConfig().getConfigurationSection("customNames").getKeys(false).forEach(key ->
-                    customNames.put(UUID.fromString(key), this.getConfig().getString("customNames." + key))
-            );
-        }
-        if (this.getConfig().contains("actualNames")) {
-            this.getConfig().getConfigurationSection("actualNames").getKeys(false).forEach(key ->
-                    actualNames.put(UUID.fromString(key), this.getConfig().getString("actualNames." + key))
-            );
-        }
-    }
-
-    /**
-     * Wait for plugin to be disabled (server stop).
-     * Dump HashMap into YAML config. Ensures changes not lost on server restart.
-     */
-    public void onDisable() {
-        if (!customNames.isEmpty()) {
-            for (Map.Entry<UUID, String> entry : customNames.entrySet()) {
-                this.getConfig().set("customNames." + entry.getKey().toString(), entry.getValue());
-            }
-            this.saveConfig();
-        }
-        if (!actualNames.isEmpty()) {
-            for (Map.Entry<UUID, String> entry : actualNames.entrySet()) {
-                this.getConfig().set("actualNames." + entry.getKey().toString(), entry.getValue());
-            }
-            this.saveConfig();
-        }
     }
 
     /**
