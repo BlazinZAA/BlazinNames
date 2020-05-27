@@ -12,6 +12,7 @@ import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.craftbukkit.v1_15_R1.entity.CraftPlayer;
+import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -28,6 +29,7 @@ import net.viedantmc.Files.DataManager;
 
 //HeadDB API import.
 import me.arcaniax.hdb.api.HeadDatabaseAPI;
+import me.arcaniax.hdb.api.DatabaseLoadEvent;
 
 //LuckPerms API import
 import net.luckperms.api.LuckPerms;
@@ -76,8 +78,19 @@ public class Main extends JavaPlugin implements Listener {
             "32820", //UNDERLINE
             "32821" //ITALIC
     ));
+    //ArrayList of IDs for loading from HeadDatabase API.
+    final public ArrayList<Material> altMiscEffectItems = new ArrayList<Material>(Arrays.asList(
+            Material.SUNFLOWER, //OBFUSCATE
+            Material.STICK, //BOLD
+            Material.NETHER_BRICK_FENCE, //STRIKETHROUGH
+            Material.FIREWORK_ROCKET, //UNDERLINE
+            Material.STRING, //ITALIC
+            Material.SNOWBALL, //RESET
+            Material.REDSTONE //CLOSE
+    ));
 
     /**
+     * FIRST
      * Wait for plugin to be enabled (server start).
      * Fetch contents of YAML and put into customNames and actualNames HashMaps for use elsewhere.
      */
@@ -97,24 +110,30 @@ public class Main extends JavaPlugin implements Listener {
             );
         }
         lpAPI = LuckPermsProvider.get();
-        hdbAPI = new HeadDatabaseAPI();
         cmiAPI = CMI.getInstance();
-        if (lpAPI.getUserManager() == null || hdbAPI.getItemHead("1") == null || cmiAPI.getTabListManager() == null) {
-            if (lpAPI.getUserManager() == null) {
-                getLogger().severe("Failed to load LuckPerms API. Check plugin has loaded correctly.");
+        if (lpAPI == null || cmiAPI == null) {
+            if (lpAPI == null) {
+                getLogger().severe("Failed to load LuckPerms API. Check LuckPerms has loaded correctly.");
             }
-            if (hdbAPI.getItemHead("1") == null) {
-                getLogger().severe("Failed to load HeadDatabase API. Check plugin has loaded correctly.");
-            }
-            if (cmiAPI.getTabListManager() == null) {
-                getLogger().severe("Failed to load CMI API. Check plugin has loaded correctly.");
+            if (cmiAPI == null) {
+                getLogger().severe("Failed to load CMI API. Check CMI has loaded correctly.");
             }
             getServer().getPluginManager().disablePlugin(this);
             return;
-        } else {
-            createInv();
-            //lpListener();
         }
+        //lpListener();
+    }
+
+    /**
+     * SECOND
+     * Wait for HeadDatabase to load before initialising API.
+     * Triggers rest of config / setup.
+     *
+     * @param e The dabase load event.
+     */
+    @EventHandler
+    public void onDatabaseLoad(DatabaseLoadEvent e) {
+        hdbAPI = new HeadDatabaseAPI();
     }
 
     /**
@@ -137,8 +156,6 @@ public class Main extends JavaPlugin implements Listener {
     }
 
 
-
-
     /**
      * Generate the inventory containing colours and effects.
      * Called onDatabaseLoad.
@@ -156,24 +173,34 @@ public class Main extends JavaPlugin implements Listener {
             inv.setItem(x, colorBlock);
         }
 
+        if (hdbAPI == null) {
+            getLogger().warning("Failed to load HeadDatabase API. Reverting to non-HDB icons.");
+        }
+
         //Iterate through colours (0 - 16 in ChatColour.values()). Correspond directly to miscEffectsItems.
         for (int x = 16; x < 20; x++) {
-            ItemStack item = hdbAPI.getItemHead(miscEffectItems.get(x - 16));
+            ItemStack item = new ItemStack(altMiscEffectItems.get(x-16));
+            if (hdbAPI != null) { //HDB loaded?
+                item = hdbAPI.getItemHead(miscEffectItems.get(x - 16));
+            }
             ItemMeta itemMeta = (ItemMeta) item.getItemMeta();
             itemMeta.setDisplayName(ChatColor.values()[x] + ChatColor.values()[x].getName().toUpperCase());
             item.setItemMeta(itemMeta);
             inv.setItem(x + 11, item);
         }
-
-        //Use the HeadDatabase API to get reset item head.
-        ItemStack resetItem = hdbAPI.getItemHead("32823");
+        ItemStack resetItem = new ItemStack(altMiscEffectItems.get(5));
+        if (hdbAPI != null) { //HDB loaded?
+            resetItem = hdbAPI.getItemHead("32823");
+        }
         ItemMeta resetItemMeta = (ItemMeta) resetItem.getItemMeta();
         resetItemMeta.setDisplayName("* RESET *");
         resetItem.setItemMeta(resetItemMeta);
         inv.setItem(33, resetItem);
 
-        //Same as above but for close item head.
-        ItemStack closeItem = hdbAPI.getItemHead("26417");
+        ItemStack closeItem = new ItemStack(altMiscEffectItems.get(6));
+        if (hdbAPI != null) { //HDB loaded?
+            closeItem = hdbAPI.getItemHead("26417");
+        }
         ItemMeta closeItemMeta = (ItemMeta) closeItem.getItemMeta();
         closeItemMeta.setDisplayName("CLOSE");
         closeItem.setItemMeta(closeItemMeta);
@@ -326,6 +353,9 @@ public class Main extends JavaPlugin implements Listener {
      */
     @Override
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
+        if (inv == null) {
+            createInv();
+        }
         Player player = (Player) sender;
         //Get users real name from actualNames HashMap.
         String actualName = actualNames.get(player.getUniqueId());

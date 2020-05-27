@@ -1,7 +1,7 @@
 main: net.viedantmc.BlazinNames.Main
 name: BlazinNames
-version: 0.7.2
-author: Blazin_
+version: 1.0
+author: Laust & Blazin_
 api-version: 1.13
 depend: [HeadDatabase, CMI, LuckPerms]
 
