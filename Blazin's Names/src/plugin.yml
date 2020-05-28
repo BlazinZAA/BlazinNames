@@ -4,6 +4,7 @@ version: 1.0
 author: Laust & Blazin_
 api-version: 1.13
 depend: [HeadDatabase, CMI, LuckPerms]
+softdepend: [HeadDatabase]
 
 commands:
   namecolor:

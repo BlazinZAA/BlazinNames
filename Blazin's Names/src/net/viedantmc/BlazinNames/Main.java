@@ -447,7 +447,7 @@ public class Main extends JavaPlugin implements Listener {
             applyFormatting(player, reformattedName);
             player.sendMessage(chatOutputPrefix + "You applied an effect to your name. Your new name is " + reformattedName);
         } else if (eventSlot == 33) { //Reset
-            String resetName = playerName.replaceAll("§.", "");
+            String resetName = playerName.replaceAll("§([0-9]|[a-f]|[k-n])", "");
             customNames.put(player.getUniqueId(), resetName);
             applyFormatting(player, resetName);
             player.sendMessage(chatOutputPrefix + "Your name's colour and effects have been reset!");
