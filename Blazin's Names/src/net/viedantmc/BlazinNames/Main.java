@@ -11,6 +11,8 @@ import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.craftbukkit.v1_15_R1.entity.CraftPlayer;
+import org.bukkit.craftbukkit.v1_15_R1.inventory.CraftInventoryPlayer;
+import org.bukkit.craftbukkit.v1_15_R1.inventory.CraftItemStack;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -87,7 +89,6 @@ public class Main extends JavaPlugin implements Listener {
     ));
 
     /**
-     * FIRST
      * Wait for plugin to be enabled (server start).
      * Fetch contents of YAML and put into customNames and actualNames HashMaps for use elsewhere.
      */
@@ -110,7 +111,19 @@ public class Main extends JavaPlugin implements Listener {
     }
 
     /**
-     * SECOND
+     * Creates instances of all required APIs.
+     */
+    public void instantiateAPIS() {
+        lpAPI = LuckPermsProvider.get();
+        if (lpAPI == null) {
+            getLogger().severe("Failed to load LuckPerms API. Check LuckPerms has loaded correctly.");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+        lpListener();
+    }
+
+    /**
      * Wait for HeadDatabase to load before initialising API.
      * Triggers rest of config / setup.
      *
@@ -143,7 +156,7 @@ public class Main extends JavaPlugin implements Listener {
 
     /**
      * Generate the inventory containing colours and effects.
-     * Called onDatabaseLoad.
+     * Called onEnable.
      */
     public void createInv() {
         inv = Bukkit.createInventory(null, 54, ChatColor.DARK_GRAY + "" + "Select Name Color");
@@ -192,34 +205,47 @@ public class Main extends JavaPlugin implements Listener {
         inv.setItem(45, closeItem);
     }
 
+    /**
+     * Subscribe to the event listeners so that nameplates change properly on rank change.
+     */
     public void lpListener() {
-        // get the LuckPerms event bus
+        // Set the LuckPerms event bus
         EventBus eventBus = lpAPI.getEventBus();
-        // subscribe to an event using a lambda
+        // Subscribe to an event using a lambda
         eventBus.subscribe(LogPublishEvent.class, e -> e.setCancelled(true));
         eventBus.subscribe(UserLoadEvent.class, e -> {
             System.out.println("User " + e.getUser().getUsername() + " was loaded!");
-            // TODO: do something else...
         });
-        // subscribe to an event using a method reference
+        // Subscribe to an event using a method reference.
         eventBus.subscribe(UserPromoteEvent.class, this::onUserPromote);
         eventBus.subscribe(UserDemoteEvent.class, this::onUserDemote);
     }
 
-
+    /**
+     * Sets the players scoreboard prefix to the correct rank after promotion.
+     *
+     * @param event The promote event.
+     */
     private void onUserPromote(UserPromoteEvent event) {
         Plugin plugin = this;
         Bukkit.getScheduler().runTask(plugin, () -> {
             Player player = Bukkit.getPlayer(event.getUser().getUniqueId());
             setPrefixToRank(player);
+            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tablistupdate");
         });
     }
 
+    /**
+     * Sets the players scoreboard prefix to the correct rank after demotion.
+     *
+     * @param event The demote event.
+     */
     private void onUserDemote(UserDemoteEvent event) {
         Plugin plugin = this;
         Bukkit.getScheduler().runTask(plugin, () -> {
             Player player = Bukkit.getPlayer(event.getUser().getUniqueId());
             setPrefixToRank(player);
+            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tablistupdate");
         });
     }
 
@@ -255,6 +281,12 @@ public class Main extends JavaPlugin implements Listener {
         splitName(player, formattedName);
     }
 
+    /**
+     * Splits up a name if > 16 characters to flow over into suffix. Bypasses 16 character nameplate restriction.
+     *
+     * @param player        The player whose name is being split.
+     * @param formattedName The formatted name being applied.
+     */
     public void splitName(Player player, String formattedName) {
         int formattedNameLength = formattedName.length();
 
@@ -273,6 +305,11 @@ public class Main extends JavaPlugin implements Listener {
         setPrefixToRank(player);
     }
 
+    /**
+     * Sets a players nameplate and tablist prefix for a player.
+     *
+     * @param player The player to apply the prefix to.
+     */
     public void setPrefixToRank(Player player) {
         String executingUser = actualNames.get(player.getUniqueId());
         if (executingUser == null) {
@@ -285,6 +322,12 @@ public class Main extends JavaPlugin implements Listener {
         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "cmi nameplate " + executingUser + " -pref:" + prefix);
     }
 
+    /**
+     * ets a players nameplate and tablist suffix for a player.
+     *
+     * @param player The player to apply the suffix to.
+     * @param suffix The suffix to apply to the player.
+     */
     public void setSuffix(Player player, String suffix) {
         String executingUser = actualNames.get(player.getUniqueId());
         if (executingUser == null) {
@@ -293,7 +336,14 @@ public class Main extends JavaPlugin implements Listener {
         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "cmi nameplate " + executingUser + " -suf:" + suffix);
     }
 
+    /**
+     * Uses NMS packets to set a users nameplate.
+     *
+     * @param player The player whos nameplate to set.
+     * @param name   The name formatted name to set the nameplate to.
+     */
     public void setNameplate(Player player, String name) {
+        int playerEntityId = player.getEntityId();
         for (Player onlinePlayer : getServer().getOnlinePlayers()) {
             if (onlinePlayer == player) continue;
             //REMOVES THE PLAYER
@@ -309,27 +359,24 @@ public class Main extends JavaPlugin implements Listener {
                 modifiersField.setInt(nameField, nameField.getModifiers() & ~Modifier.FINAL);
                 nameField.set(gp, name);
 
+                //Destroy and recreate entity for all users to reflect nameplate changes.
                 ((CraftPlayer) onlinePlayer).getHandle().playerConnection.sendPacket(new PacketPlayOutPlayerInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.ADD_PLAYER, ((CraftPlayer) player).getHandle()));
-                ((CraftPlayer) onlinePlayer).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(player.getEntityId()));
+                ((CraftPlayer) onlinePlayer).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(playerEntityId));
                 ((CraftPlayer) onlinePlayer).getHandle().playerConnection.sendPacket(new PacketPlayOutNamedEntitySpawn(((CraftPlayer) player).getHandle()));
+                //Ensure that player's rotation and armour remains the same as before entity destroy.
+                ((CraftPlayer) onlinePlayer).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityHeadRotation(((CraftPlayer) player).getHandle(), (byte) (((CraftPlayer) player).getHandle().getHeadRotation() * 256F / 360)));
+                ((CraftPlayer) onlinePlayer).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityMetadata(player.getEntityId(), ((CraftPlayer) player).getHandle().getDataWatcher(), true));
+                ((CraftPlayer) onlinePlayer).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityEquipment(playerEntityId, EnumItemSlot.HEAD, CraftItemStack.asNMSCopy(player.getInventory().getHelmet())));
+                ((CraftPlayer) onlinePlayer).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityEquipment(playerEntityId, EnumItemSlot.CHEST, CraftItemStack.asNMSCopy(player.getInventory().getChestplate())));
+                ((CraftPlayer) onlinePlayer).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityEquipment(playerEntityId, EnumItemSlot.LEGS, CraftItemStack.asNMSCopy(player.getInventory().getLeggings())));
+                ((CraftPlayer) onlinePlayer).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityEquipment(playerEntityId, EnumItemSlot.FEET, CraftItemStack.asNMSCopy(player.getInventory().getBoots())));
+                ((CraftPlayer) onlinePlayer).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityEquipment(playerEntityId, EnumItemSlot.MAINHAND, CraftItemStack.asNMSCopy(player.getInventory().getItemInMainHand())));
+                ((CraftPlayer) onlinePlayer).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityEquipment(playerEntityId, EnumItemSlot.OFFHAND, CraftItemStack.asNMSCopy(player.getInventory().getItemInOffHand())));
 
             } catch (IllegalAccessException | NoSuchFieldException ex) {
                 throw new IllegalStateException(ex);
             }
         }
-    }
-
-    /**
-     * Creates instances of all required APIs.
-     */
-    public void instantiateAPIS() {
-        lpAPI = LuckPermsProvider.get();
-        if (lpAPI == null) {
-            getLogger().severe("Failed to load LuckPerms API. Check LuckPerms has loaded correctly.");
-            getServer().getPluginManager().disablePlugin(this);
-            return;
-        }
-        lpListener();
     }
 
     /**
@@ -381,8 +428,7 @@ public class Main extends JavaPlugin implements Listener {
                     player.sendMessage(chatOutputPrefix + "No nickname set. Type /" + label + " §onickname§r to set a nickname.");
                 }
                 return true;
-            }
-            if (nickName.matches("([A-Za-z0-9]|_){3,16}")) { //Regex to check if name entered matches minecraft naming conventions.
+            } else if (nickName.matches("([A-Za-z0-9]|_){3,16}")) { //Regex to check if name entered matches minecraft naming conventions.
                 //If not already exists, add users un-nickedname to the actualNames HashMap for future reference.
                 actualNames.putIfAbsent(player.getUniqueId(), currentName);
                 //Load that name into a var.
@@ -391,7 +437,7 @@ public class Main extends JavaPlugin implements Listener {
                     nickNameWithFormatting = playerName.substring(0, playerName.lastIndexOf("§") + 2) + ChatColor.ITALIC + nickName;
                 }
                 //Set the new nickname in the chat and tablist.
-                player.sendMessage(chatOutputPrefix + "Nickname set to: " + nickNameWithFormatting + ChatColor.RESET + "! Type /" + label + " §rreset to reset it at any time.");
+                player.sendMessage(chatOutputPrefix + "Nickname set to " + nickNameWithFormatting + ChatColor.RESET + "! Type /" + label + " §rreset to reset it at any time.");
                 //Update in the customNames HashMap.
                 customNames.put(player.getUniqueId(), nickNameWithFormatting);
                 applyFormatting(player, nickNameWithFormatting);
@@ -451,6 +497,5 @@ public class Main extends JavaPlugin implements Listener {
             player.closeInventory();
         }
         player.closeInventory();
-
     }
 }
