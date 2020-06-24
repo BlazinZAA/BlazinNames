@@ -1,11 +1,10 @@
 main: net.viedantmc.BlazinNames.Main
 name: BlazinNames
-version: 1.1
-author: Laust & Blazin_
+version: 1.4
+author: Laustz & Blazin_
 api-version: 1.13
-loadbefore: [CMI, LuckPerms, HeadDatabase]
+loadbefore: [CMI, LuckPerms]
 depend: [CMI, LuckPerms]
-softdepend: [HeadDatabase]
 
 commands:
   namecolor:

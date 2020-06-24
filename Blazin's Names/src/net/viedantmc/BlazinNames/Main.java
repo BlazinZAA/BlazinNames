@@ -1,18 +1,13 @@
 package net.viedantmc.BlazinNames;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-import com.mojang.authlib.GameProfile;
-import net.minecraft.server.v1_15_R1.*;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
-import org.bukkit.craftbukkit.v1_15_R1.entity.CraftPlayer;
-import org.bukkit.craftbukkit.v1_15_R1.inventory.CraftInventoryPlayer;
-import org.bukkit.craftbukkit.v1_15_R1.inventory.CraftItemStack;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -26,10 +21,6 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import net.md_5.bungee.api.ChatColor;
 import net.viedantmc.Files.DataManager;
-
-//HeadDB API import.
-import me.arcaniax.hdb.api.HeadDatabaseAPI;
-import me.arcaniax.hdb.api.DatabaseLoadEvent;
 
 //LuckPerms API import
 import net.luckperms.api.LuckPerms;
@@ -47,46 +38,8 @@ public class Main extends JavaPlugin implements Listener {
     public static Map<UUID, String> actualNames = new HashMap<>();
     public DataManager data;
     public Inventory inv;
-    public HeadDatabaseAPI hdbAPI;
     public LuckPerms lpAPI;
     final public String chatOutputPrefix = ChatColor.GRAY + "[" + ChatColor.GOLD + "B" + ChatColor.RED + "N" + ChatColor.GRAY + "] " + ChatColor.RESET;
-    //ArrayList of all concrete colours to be used for colour selection.
-    final public ArrayList<Material> colouredConcreteArr = new ArrayList<Material>(Arrays.asList(
-            Material.BLACK_CONCRETE, //BLACK
-            Material.BLUE_CONCRETE, //DARK_BLUE
-            Material.GREEN_CONCRETE, //DARK_GREEN
-            Material.CYAN_CONCRETE, //DARK_AQUA
-            Material.RED_CONCRETE, //DARK_RED
-            Material.MAGENTA_CONCRETE, //DARK_PURPLE
-            Material.YELLOW_CONCRETE, //GOLD
-            Material.LIGHT_GRAY_CONCRETE, //GRAY
-            Material.GRAY_CONCRETE, //DARK_GRAY
-            Material.BLUE_CONCRETE_POWDER, //BLUE
-            Material.LIME_CONCRETE_POWDER, //GREEN
-            Material.CYAN_CONCRETE_POWDER, //AQUA
-            Material.RED_CONCRETE_POWDER, //RED
-            Material.MAGENTA_CONCRETE_POWDER, //LIGHT_PURPLE
-            Material.YELLOW_CONCRETE_POWDER, //YELLOW
-            Material.WHITE_CONCRETE_POWDER //WHITE
-    ));
-    //ArrayList of IDs for loading from HeadDatabase API.
-    final public ArrayList<String> miscEffectItems = new ArrayList<String>(Arrays.asList(
-            "27530", //OBFUSCATE
-            "32822", //BOLD
-            "32819", //STRIKETHROUGH
-            "32820", //UNDERLINE
-            "32821" //ITALIC
-    ));
-    //ArrayList of IDs for loading from HeadDatabase API.
-    final public ArrayList<Material> altMiscEffectItems = new ArrayList<Material>(Arrays.asList(
-            Material.SUNFLOWER, //OBFUSCATE
-            Material.STICK, //BOLD
-            Material.NETHER_BRICK_FENCE, //STRIKETHROUGH
-            Material.FIREWORK_ROCKET, //UNDERLINE
-            Material.STRING, //ITALIC
-            Material.SNOWBALL, //RESET
-            Material.REDSTONE //CLOSE
-    ));
 
     /**
      * Wait for plugin to be enabled (server start).
@@ -124,17 +77,6 @@ public class Main extends JavaPlugin implements Listener {
     }
 
     /**
-     * Wait for HeadDatabase to load before initialising API.
-     * Triggers rest of config / setup.
-     *
-     * @param e The database load event.
-     */
-    @EventHandler
-    public void onDatabaseLoad(DatabaseLoadEvent e) {
-        hdbAPI = new HeadDatabaseAPI();
-    }
-
-    /**
      * Wait for plugin to be disabled (server stop).
      * Dump HashMap into YAML config. Ensures changes not lost on server restart.
      */
@@ -153,56 +95,165 @@ public class Main extends JavaPlugin implements Listener {
         }
     }
 
-
     /**
      * Generate the inventory containing colours and effects.
      * Called onEnable.
      */
-    public void createInv() {
-        inv = Bukkit.createInventory(null, 54, ChatColor.DARK_GRAY + "" + "Select Name Color");
-        //Iterate through colours (0 - 16 in ChatColour.values()). Correspond directly to colouredConcreteArr.
-        for (int x = 0; x < 16; x++) {
-            ItemStack colorBlock = new ItemStack(colouredConcreteArr.get(x), 1);
+    public void createInv(Player player) {
+        inv = Bukkit.createInventory(null, 54, ChatColor.DARK_GRAY + "" + "Select Name Color or Effect");
+
+        //Handle allowed colours.
+
+        LinkedHashMap<Material, ChatColor> colorsAllowed = new LinkedHashMap<>();
+
+        if (player.hasPermission("bn.namecolor.darkred")) {
+            colorsAllowed.put(Material.RED_CONCRETE, ChatColor.DARK_RED);
+        }
+        if (player.hasPermission("bn.namecolor.red")) {
+            colorsAllowed.put(Material.RED_CONCRETE_POWDER, ChatColor.RED);
+        }
+        if (player.hasPermission("bn.namecolor.gold")) {
+            colorsAllowed.put(Material.YELLOW_CONCRETE, ChatColor.GOLD);
+        }
+        if (player.hasPermission("bn.namecolor.yellow")) {
+            colorsAllowed.put( Material.YELLOW_CONCRETE_POWDER, ChatColor.YELLOW);
+        }
+        if (player.hasPermission("bn.namecolor.darkgreen")) {
+            colorsAllowed.put(Material.GREEN_CONCRETE, ChatColor.DARK_GREEN);
+        }
+        if (player.hasPermission("bn.namecolor.green")) {
+            colorsAllowed.put(Material.LIME_CONCRETE_POWDER, ChatColor.GREEN);
+        }
+        if (player.hasPermission("bn.namecolor.darkaqua")) {
+            colorsAllowed.put(Material.CYAN_CONCRETE, ChatColor.DARK_AQUA);
+        }
+        if (player.hasPermission("bn.namecolor.aqua")) {
+            colorsAllowed.put(Material.CYAN_CONCRETE_POWDER, ChatColor.AQUA);
+        }
+        if (player.hasPermission("bn.namecolor.darkblue")) {
+            colorsAllowed.put(Material.BLUE_CONCRETE, ChatColor.DARK_BLUE);
+        }
+        if (player.hasPermission("bn.namecolor.blue")) {
+            colorsAllowed.put(Material.BLUE_CONCRETE_POWDER, ChatColor.BLUE);
+        }
+        if (player.hasPermission("bn.namecolor.darkpurple")) {
+            colorsAllowed.put(Material.MAGENTA_CONCRETE, ChatColor.DARK_PURPLE);
+        }
+        if (player.hasPermission("bn.namecolor.lightpurple")) {
+            colorsAllowed.put(Material.MAGENTA_CONCRETE_POWDER, ChatColor.LIGHT_PURPLE);
+        }
+        if (player.hasPermission("bn.namecolor.black")) {
+            colorsAllowed.put(Material.BLACK_CONCRETE, ChatColor.BLACK);
+        }
+        if (player.hasPermission("bn.namecolor.darkgray")) {
+            colorsAllowed.put(Material.GRAY_CONCRETE, ChatColor.DARK_GRAY);
+        }
+        if (player.hasPermission("bn.namecolor.gray")) {
+            colorsAllowed.put(Material.LIGHT_GRAY_CONCRETE, ChatColor.GRAY);
+        }
+        if (player.hasPermission("bn.namecolor.white")) {
+            colorsAllowed.put(Material.WHITE_CONCRETE_POWDER, ChatColor.WHITE);
+        }
+
+        int colorPos = 0;
+
+
+        for (Map.Entry<Material, ChatColor> entry : colorsAllowed.entrySet()) {
+            String playerName = player.getDisplayName();
+            Material mat = entry.getKey();
+            ChatColor color = entry.getValue();
+            ItemStack colorBlock = new ItemStack(mat, 1);
             ItemMeta colorBlockMeta = (ItemMeta) colorBlock.getItemMeta();
-            //Set the display name of the item.
-            colorBlockMeta.setDisplayName(ChatColor.values()[x] + ChatColor.values()[x].getName().replaceAll("_", " ").toUpperCase());
-            colorBlock.setItemMeta(colorBlockMeta);
-            //Add to pos x in inventory.
-            inv.setItem(x, colorBlock);
-        }
-
-        if (hdbAPI == null) {
-            getLogger().warning("Failed to load HeadDatabase API. Reverting to non-HDB icons.");
-        }
-
-        //Iterate through colours (0 - 16 in ChatColour.values()). Correspond directly to miscEffectsItems.
-        for (int x = 16; x < 20; x++) {
-            ItemStack item = new ItemStack(altMiscEffectItems.get(x - 16));
-            if (hdbAPI != null) { //HDB loaded?
-                item = hdbAPI.getItemHead(miscEffectItems.get(x - 16));
+            colorBlockMeta.setDisplayName(color + color.getName().replaceAll("_", " ").toUpperCase());
+            String primaryColor = "§f";
+            if (playerName.substring(0, 2).matches("§.")) {
+                primaryColor = playerName.substring(0, 2);
             }
-            ItemMeta itemMeta = (ItemMeta) item.getItemMeta();
-            itemMeta.setDisplayName(ChatColor.values()[x] + ChatColor.values()[x].getName().toUpperCase());
-            item.setItemMeta(itemMeta);
-            inv.setItem(x + 11, item);
+            String rightClickName = getMultiColorName(primaryColor, color.toString(), playerName);
+            colorBlockMeta.setLore(Arrays.asList(ChatColor.GREEN + "Left-click " + ChatColor.RESET + "to set your name to " + color + player.getDisplayName().replaceAll("§[0-9a-f]", "") + ChatColor.RESET + ".",
+                                                 ChatColor.RED + "Right-click " + ChatColor.RESET + "to set your name to " + rightClickName + ChatColor.RESET + "."));
+            colorBlock.setItemMeta(colorBlockMeta);
+            inv.setItem(colorPos, colorBlock);
+            colorPos++;
         }
-        ItemStack resetItem = new ItemStack(altMiscEffectItems.get(5));
-        if (hdbAPI != null) { //HDB loaded?
-            resetItem = hdbAPI.getItemHead("32823");
+
+        //Handle allowed effects.
+
+        LinkedHashMap<Material, ChatColor> effectsAllowed = new LinkedHashMap<>();
+
+        if (player.hasPermission("bn.namecolor.magic")) {
+            effectsAllowed.put(Material.STRING, ChatColor.MAGIC);
         }
+        if (player.hasPermission("bn.namecolor.bold")) {
+            effectsAllowed.put(Material.STICK, ChatColor.BOLD);
+        }
+        if (player.hasPermission("bn.namecolor.strikethrough")) {
+            effectsAllowed.put(Material.NETHER_BRICK_FENCE, ChatColor.STRIKETHROUGH);
+        }
+        if (player.hasPermission("bn.namecolor.underline")) {
+            effectsAllowed.put(Material.FIREWORK_ROCKET, ChatColor.UNDERLINE);
+        }
+
+        int effectPos = 27;
+
+        for (Map.Entry<Material, ChatColor> entry : effectsAllowed.entrySet()) {
+            Material mat = entry.getKey();
+            ChatColor effect = entry.getValue();
+            ItemStack effectBlock = new ItemStack(mat, 1);
+            ItemMeta effectBlockMeta = (ItemMeta) effectBlock.getItemMeta();
+            effectBlockMeta.setDisplayName(effect + effect.getName().replaceAll("_", " ").toUpperCase());
+            String playerName = player.getDisplayName().replaceAll("§r", "");
+            effectBlockMeta.setLore(Arrays.asList(ChatColor.GREEN + "Left-click " + ChatColor.RESET + "to set your name to " + getNameWithEffect(playerName, effect.toString(), player) + ChatColor.RESET + "."));
+            effectBlock.setItemMeta(effectBlockMeta);
+            inv.setItem(effectPos, effectBlock);
+            effectPos++;
+        }
+
+        //Add reset and close buttons.
+
+        ItemStack resetItem = new ItemStack(Material.SNOWBALL, 1);
         ItemMeta resetItemMeta = (ItemMeta) resetItem.getItemMeta();
-        resetItemMeta.setDisplayName("* RESET *");
+        resetItemMeta.setDisplayName("RESET");
+        resetItemMeta.setLore(Arrays.asList(ChatColor.GREEN + "Left-click " + ChatColor.RESET + "to reset your name to " + player.getDisplayName().replaceAll("§.", "") + "."));
         resetItem.setItemMeta(resetItemMeta);
         inv.setItem(33, resetItem);
 
-        ItemStack closeItem = new ItemStack(altMiscEffectItems.get(6));
-        if (hdbAPI != null) { //HDB loaded?
-            closeItem = hdbAPI.getItemHead("26417");
-        }
+        ItemStack closeItem = new ItemStack(Material.REDSTONE, 1);
         ItemMeta closeItemMeta = (ItemMeta) closeItem.getItemMeta();
         closeItemMeta.setDisplayName("CLOSE");
+        closeItemMeta.setLore(Arrays.asList(ChatColor.GREEN + "Left-click " + ChatColor.RESET + "to " + ChatColor.RED + "close " + ChatColor.RESET + "this menu."));
         closeItem.setItemMeta(closeItemMeta);
         inv.setItem(45, closeItem);
+    }
+
+    public String getMultiColorName(String primaryColor, String altColor, String playerName) {
+        String rightClickName = "";
+        int ctr = 0;
+
+        Set<String> allMatches = new HashSet<String>();
+        Matcher m = Pattern.compile("§[k-n]").matcher(playerName);
+        while (m.find()) {
+            allMatches.add(m.group());
+        }
+        StringJoiner joiner = new StringJoiner("");
+        for(String item : allMatches) {
+            joiner.add(item);
+        }
+        String effects = joiner.toString();
+
+        playerName = playerName.replaceAll("§.", "");
+        while (ctr < playerName.length()) {
+            String useColor;
+            if (ctr % 2 == 0) {
+                useColor = primaryColor;
+            } else {
+                useColor = altColor;
+            }
+            rightClickName += useColor + effects + playerName.substring(ctr, ctr + 1 );
+            ctr++;
+        }
+        getLogger().info(rightClickName);
+        return rightClickName;
     }
 
     /**
@@ -262,6 +313,8 @@ public class Main extends JavaPlugin implements Listener {
         String formattedName = player.getDisplayName();
         if (customNames.get(player.getUniqueId()) != null) {
             formattedName = ChatColor.translateAlternateColorCodes('&', customNames.get(player.getUniqueId()));
+        } else {
+            formattedName = ChatColor.WHITE + formattedName;
         }
         applyFormatting(player, formattedName);
     }
@@ -276,32 +329,9 @@ public class Main extends JavaPlugin implements Listener {
         if (customNames.get(player.getUniqueId()) != null) {
             formattedName = ChatColor.translateAlternateColorCodes('&', customNames.get(player.getUniqueId())).replaceAll("§r", "");
         }
-        player.setDisplayName(formattedName);
+        player.setDisplayName(ChatColor.WHITE + formattedName);
+
         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tablistupdate");
-        splitName(player, formattedName);
-    }
-
-    /**
-     * Splits up a name if > 16 characters to flow over into suffix. Bypasses 16 character nameplate restriction.
-     *
-     * @param player        The player whose name is being split.
-     * @param formattedName The formatted name being applied.
-     */
-    public void splitName(Player player, String formattedName) {
-        int formattedNameLength = formattedName.length();
-
-        if (formattedNameLength > 16) {
-            String nameEntry = formattedName.substring(0, 16);
-            String suffixEntry = formattedName.substring(16, formattedNameLength);
-            if (formattedName.charAt(16) == '§') {
-                nameEntry = formattedName.substring(0, 15);
-                suffixEntry = formattedName.substring(15, formattedNameLength);
-            }
-            setNameplate(player, nameEntry);
-            setSuffix(player, suffixEntry);
-        } else {
-            setNameplate(player, formattedName);
-        }
         setPrefixToRank(player);
     }
 
@@ -311,72 +341,30 @@ public class Main extends JavaPlugin implements Listener {
      * @param player The player to apply the prefix to.
      */
     public void setPrefixToRank(Player player) {
-        String executingUser = actualNames.get(player.getUniqueId());
-        if (executingUser == null) {
-            executingUser = player.getDisplayName();
-        }
-        String prefix = lpAPI.getUserManager().getUser(player.getUniqueId()).getCachedData().getMetaData().getPrefix();
-        if (prefix == null) {
-            prefix = "";
-        }
-        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "cmi nameplate " + executingUser + " -pref:" + prefix);
-    }
-
-    /**
-     * ets a players nameplate and tablist suffix for a player.
-     *
-     * @param player The player to apply the suffix to.
-     * @param suffix The suffix to apply to the player.
-     */
-    public void setSuffix(Player player, String suffix) {
-        String executingUser = actualNames.get(player.getUniqueId());
-        if (executingUser == null) {
-            executingUser = player.getDisplayName();
-        }
-        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "cmi nameplate " + executingUser + " -suf:" + suffix);
-    }
-
-    /**
-     * Uses NMS packets to set a users nameplate.
-     *
-     * @param player The player whos nameplate to set.
-     * @param name   The name formatted name to set the nameplate to.
-     */
-    public void setNameplate(Player player, String name) {
-        int playerEntityId = player.getEntityId();
-        for (Player onlinePlayer : getServer().getOnlinePlayers()) {
-            if (onlinePlayer == player) continue;
-            //REMOVES THE PLAYER
-            ((CraftPlayer) onlinePlayer).getHandle().playerConnection.sendPacket(new PacketPlayOutPlayerInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.REMOVE_PLAYER, ((CraftPlayer) player).getHandle()));
-            //CHANGES THE PLAYER'S GAME PROFILE
-            GameProfile gp = ((CraftPlayer) player).getProfile();
-            try {
-                Field nameField = GameProfile.class.getDeclaredField("name");
-                nameField.setAccessible(true);
-
-                Field modifiersField = Field.class.getDeclaredField("modifiers");
-                modifiersField.setAccessible(true);
-                modifiersField.setInt(nameField, nameField.getModifiers() & ~Modifier.FINAL);
-                nameField.set(gp, name);
-
-                //Destroy and recreate entity for all users to reflect nameplate changes.
-                ((CraftPlayer) onlinePlayer).getHandle().playerConnection.sendPacket(new PacketPlayOutPlayerInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.ADD_PLAYER, ((CraftPlayer) player).getHandle()));
-                ((CraftPlayer) onlinePlayer).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(playerEntityId));
-                ((CraftPlayer) onlinePlayer).getHandle().playerConnection.sendPacket(new PacketPlayOutNamedEntitySpawn(((CraftPlayer) player).getHandle()));
-                //Ensure that player's rotation and armour remains the same as before entity destroy.
-                ((CraftPlayer) onlinePlayer).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityHeadRotation(((CraftPlayer) player).getHandle(), (byte) (((CraftPlayer) player).getHandle().getHeadRotation() * 256F / 360)));
-                ((CraftPlayer) onlinePlayer).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityMetadata(player.getEntityId(), ((CraftPlayer) player).getHandle().getDataWatcher(), true));
-                ((CraftPlayer) onlinePlayer).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityEquipment(playerEntityId, EnumItemSlot.HEAD, CraftItemStack.asNMSCopy(player.getInventory().getHelmet())));
-                ((CraftPlayer) onlinePlayer).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityEquipment(playerEntityId, EnumItemSlot.CHEST, CraftItemStack.asNMSCopy(player.getInventory().getChestplate())));
-                ((CraftPlayer) onlinePlayer).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityEquipment(playerEntityId, EnumItemSlot.LEGS, CraftItemStack.asNMSCopy(player.getInventory().getLeggings())));
-                ((CraftPlayer) onlinePlayer).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityEquipment(playerEntityId, EnumItemSlot.FEET, CraftItemStack.asNMSCopy(player.getInventory().getBoots())));
-                ((CraftPlayer) onlinePlayer).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityEquipment(playerEntityId, EnumItemSlot.MAINHAND, CraftItemStack.asNMSCopy(player.getInventory().getItemInMainHand())));
-                ((CraftPlayer) onlinePlayer).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityEquipment(playerEntityId, EnumItemSlot.OFFHAND, CraftItemStack.asNMSCopy(player.getInventory().getItemInOffHand())));
-
-            } catch (IllegalAccessException | NoSuchFieldException ex) {
-                throw new IllegalStateException(ex);
+        try {
+            String executingUser = player.getDisplayName().replaceAll("§.", "");
+            String prefix = lpAPI.getUserManager().getUser(player.getUniqueId()).getCachedData().getMetaData().getPrefix();
+            if (prefix == null) {
+                prefix = "";
             }
+            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "cmi nameplate " + executingUser + " -pref:" + prefix);
+        } catch (Exception e) {
+            getLogger().info("Prefix for player will update when they next join.");
         }
+    }
+
+    /**
+     * Disable the tab suggestions for all BlazinNames commands.
+     * @param sender The sender fo the command.
+     * @param command The command executed.
+     * @param alias The command typed by the user.
+     * @param args Arguments of the command.
+     * @return
+     */
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        List<String> list = new ArrayList<>();
+        return list;
     }
 
     /**
@@ -392,10 +380,12 @@ public class Main extends JavaPlugin implements Listener {
      */
     @Override
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
-        if (inv == null) {
-            createInv();
+        if(!(sender instanceof Player)) {
+            sender.sendMessage("You can't colour the console!");
+            return true;
         }
         Player player = (Player) sender;
+        createInv(player);
         //Get users real name from actualNames HashMap.
         String actualName = actualNames.get(player.getUniqueId());
         //Get unformatted current player name.
@@ -411,17 +401,13 @@ public class Main extends JavaPlugin implements Listener {
             } else if (args.length == 1) {
                 nickName = args[0];
             } else {
-                player.sendMessage(chatOutputPrefix + ChatColor.RED + "Invalid command syntax. The correct syntax is /" + label + " §onickname§r.");
+                player.sendMessage(chatOutputPrefix + ChatColor.RED + "Invalid command syntax. The correct syntax is /" + label + " §onickname.§r");
                 return true;
             }
             if (nickName.equalsIgnoreCase("Reset")) {
                 if (actualName != null) {
-                    //Apply formatting to real name.
-                    String actualNameWithFormatting = playerName.replaceAll(currentName, actualName).replaceAll("§o", "");
-                    //Reset the nickname in the chat and tablist.
-                    customNames.put(player.getUniqueId(), actualNameWithFormatting);
-                    applyFormatting(player, actualNameWithFormatting);
-                    setSuffix(player, "");
+                    customNames.put(player.getUniqueId(), actualName);
+                    applyFormatting(player, actualName);
                     actualNames.remove(player.getUniqueId());
                     player.sendMessage(chatOutputPrefix + "Nickname reset!");
                 } else {
@@ -432,12 +418,8 @@ public class Main extends JavaPlugin implements Listener {
                 //If not already exists, add users un-nickedname to the actualNames HashMap for future reference.
                 actualNames.putIfAbsent(player.getUniqueId(), currentName);
                 //Load that name into a var.
-                String nickNameWithFormatting = ChatColor.ITALIC + playerName.replace(currentName, nickName);
-                if (playerName.substring(0, 2).matches("§([0-9]|[a-f])")) {
-                    nickNameWithFormatting = playerName.substring(0, playerName.lastIndexOf("§") + 2) + ChatColor.ITALIC + nickName;
-                }
-                //Set the new nickname in the chat and tablist.
-                player.sendMessage(chatOutputPrefix + "Nickname set to " + nickNameWithFormatting + ChatColor.RESET + "! Type /" + label + " §rreset to reset it at any time.");
+                String nickNameWithFormatting = ChatColor.ITALIC + nickName;
+                player.sendMessage(chatOutputPrefix + "Nickname set to " + nickNameWithFormatting + ChatColor.RESET + "! Type /" + label + " §rreset to reset it at any time. You will need to reapply any colors/effects you previously had applied.");
                 //Update in the customNames HashMap.
                 customNames.put(player.getUniqueId(), nickNameWithFormatting);
                 applyFormatting(player, nickNameWithFormatting);
@@ -461,6 +443,7 @@ public class Main extends JavaPlugin implements Listener {
         } else if (event.getClickedInventory() != inv) { //Not the correct inventory clicked?
             return;
         }
+        event.setCancelled(true);
         Player player = (Player) event.getWhoClicked();
         //Get player name and replace all reset markers to prevent long chain.
         String playerName = player.getDisplayName().replaceAll("§r", "");
@@ -468,28 +451,22 @@ public class Main extends JavaPlugin implements Listener {
         int eventSlot = event.getSlot();
         String itemDisplayName = event.getCurrentItem().getItemMeta().getDisplayName();
         if (eventSlot <= 16) { //Colours
-            //Get colour to apply to name.
-            ChatColor color = ChatColor.values()[eventSlot];
-            String reformattedName = color + player.getDisplayName().replace(player.getDisplayName(), color + player.getDisplayName());
-            reformattedName = color + playerName.replaceAll("§([0-9]|[a-f])", "");
-            customNames.put(player.getUniqueId(), reformattedName);
-            applyFormatting(player, reformattedName);
-            player.sendMessage(chatOutputPrefix + "Color applied: " + reformattedName);
-        } else if (eventSlot >= 27 && eventSlot <= 31) { //Effects
-            String effect = itemDisplayName.substring(0, 2);
-            String reformattedName = playerName;
-            if (playerName.substring(0, 2).matches("§([0-9]|[a-f])")) { //Does name already have colour applied?
-                //Put effect after colour (needed to work).
-                reformattedName = playerName.substring(0, 2) + effect + playerName.substring(2);
-            } else if (!(playerName.contains(effect))) {
-                //Otherwise, no effect applied so just add to the front of the name.
-                reformattedName = effect + playerName;
+            if (event.isLeftClick()) {
+                leftClick(itemDisplayName, player);
+            } else if (event.isRightClick()) {
+                rightClick(itemDisplayName, player);
             }
+        }
+        if (eventSlot >= 27 && eventSlot <= 31) { //Effects
+            String effect = itemDisplayName.substring(0, 2);
+
+            String reformattedName = getNameWithEffect(playerName, effect, player);
+
             customNames.put(player.getUniqueId(), reformattedName);
             applyFormatting(player, reformattedName);
             player.sendMessage(chatOutputPrefix + "Effect applied: " + reformattedName);
         } else if (eventSlot == 33) { //Reset
-            String resetName = playerName.replaceAll("§([0-9]|[a-f]|[k-n])", "");
+            String resetName = playerName.replaceAll("§[0-9a-fk-n]", "");
             customNames.put(player.getUniqueId(), resetName);
             applyFormatting(player, resetName);
             player.sendMessage(chatOutputPrefix + "Name color and effects reset!");
@@ -498,4 +475,72 @@ public class Main extends JavaPlugin implements Listener {
         }
         player.closeInventory();
     }
+
+    public String getNameWithEffect(String playerName, String effect, Player player) {
+        String reformattedName = playerName;
+        Set<String> allMatches = new HashSet<String>();
+        Matcher m = Pattern.compile("§[k-n]").matcher(reformattedName);
+        while (m.find()) {
+            allMatches.add(m.group());
+        }
+        StringJoiner joiner = new StringJoiner("");
+        for(String item : allMatches) {
+            joiner.add(item);
+        }
+        String effects = joiner.toString();
+        effect += effects;
+        if (actualNames.get(player.getUniqueId()) != null) {
+            effect += ChatColor.ITALIC;
+        }
+
+        reformattedName = reformattedName.replaceAll("§[k-n]", "");
+
+        if (reformattedName.substring(0, 2).matches("§[0-9a-f]")) { //Does name already have colour applied?
+            //Put effect after colour (needed to work).
+            String primaryColor = reformattedName.substring(0, 2);
+            if (reformattedName.substring(3, 5).matches("§[0-9a-f]")) {
+                String altColor = reformattedName.substring(3, 5);
+                getLogger().info(altColor);
+                reformattedName = "";
+                int i =  0;
+                for (Character c : player.getDisplayName().replaceAll("§.", "").toCharArray()) {
+                    if (i % 2 == 0) {
+                        reformattedName += primaryColor + effect + c.toString();
+                    } else {
+                        reformattedName += altColor + effect + c.toString();
+                    }
+                    i++;
+                }
+            } else {
+                reformattedName = reformattedName.substring(0, 2) + effect + reformattedName.substring(2);
+            }
+        } else {
+            reformattedName = effect + playerName;
+        }
+        return reformattedName;
+    }
+
+    public void leftClick(String itemDisplayName, Player player) {
+        //Get colour to apply to name.
+        String color = itemDisplayName.substring(0, 2);
+        String reformattedName = color + player.getDisplayName().replaceAll("§[0-9a-f]", "");
+        customNames.put(player.getUniqueId(), reformattedName);
+        player.sendMessage(chatOutputPrefix + "Color applied: " + reformattedName);
+        applyFormatting(player, reformattedName);
+    }
+
+
+    public void rightClick(String itemDisplayName, Player player) {
+        String color = itemDisplayName.substring(0, 2);
+        String playerName = player.getDisplayName();
+        String primaryColor = "§f";
+        if (playerName.substring(0, 2).matches("§.")) {
+            primaryColor = playerName.substring(0, 2);
+        }
+        String rightClickName = getMultiColorName(primaryColor, color, playerName);
+        customNames.put(player.getUniqueId(), rightClickName);
+        player.sendMessage(chatOutputPrefix + "Color applied: " + rightClickName);
+        applyFormatting(player, rightClickName);
+    }
+
 }
