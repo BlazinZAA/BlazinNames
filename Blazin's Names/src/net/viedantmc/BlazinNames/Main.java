@@ -166,7 +166,7 @@ public class Main extends JavaPlugin implements Listener {
             ItemMeta colorBlockMeta = (ItemMeta) colorBlock.getItemMeta();
             colorBlockMeta.setDisplayName(color + color.getName().replaceAll("_", " ").toUpperCase());
             String primaryColor = "§f";
-            if (playerName.substring(0, 2).matches("§.")) {
+            if (playerName.substring(0, 2).matches("§[0-9a-f]")) {
                 primaryColor = playerName.substring(0, 2);
             }
             String rightClickName = getMultiColorName(primaryColor, color.toString(), playerName);
@@ -313,8 +313,6 @@ public class Main extends JavaPlugin implements Listener {
         String formattedName = player.getDisplayName();
         if (customNames.get(player.getUniqueId()) != null) {
             formattedName = ChatColor.translateAlternateColorCodes('&', customNames.get(player.getUniqueId()));
-        } else {
-            formattedName = ChatColor.WHITE + formattedName;
         }
         applyFormatting(player, formattedName);
     }
@@ -329,8 +327,7 @@ public class Main extends JavaPlugin implements Listener {
         if (customNames.get(player.getUniqueId()) != null) {
             formattedName = ChatColor.translateAlternateColorCodes('&', customNames.get(player.getUniqueId())).replaceAll("§r", "");
         }
-        player.setDisplayName(ChatColor.WHITE + formattedName);
-
+        player.setDisplayName(formattedName);
         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tablistupdate");
         setPrefixToRank(player);
     }
@@ -493,14 +490,12 @@ public class Main extends JavaPlugin implements Listener {
             effect += ChatColor.ITALIC;
         }
 
-        reformattedName = reformattedName.replaceAll("§[k-n]", "");
+        reformattedName = reformattedName.replaceAll("§[k-o]", "");
 
         if (reformattedName.substring(0, 2).matches("§[0-9a-f]")) { //Does name already have colour applied?
-            //Put effect after colour (needed to work).
             String primaryColor = reformattedName.substring(0, 2);
             if (reformattedName.substring(3, 5).matches("§[0-9a-f]")) {
                 String altColor = reformattedName.substring(3, 5);
-                getLogger().info(altColor);
                 reformattedName = "";
                 int i =  0;
                 for (Character c : player.getDisplayName().replaceAll("§.", "").toCharArray()) {
@@ -515,7 +510,7 @@ public class Main extends JavaPlugin implements Listener {
                 reformattedName = reformattedName.substring(0, 2) + effect + reformattedName.substring(2);
             }
         } else {
-            reformattedName = effect + playerName;
+            reformattedName = ChatColor.WHITE + effect + playerName;
         }
         return reformattedName;
     }
@@ -534,7 +529,7 @@ public class Main extends JavaPlugin implements Listener {
         String color = itemDisplayName.substring(0, 2);
         String playerName = player.getDisplayName();
         String primaryColor = "§f";
-        if (playerName.substring(0, 2).matches("§.")) {
+        if (playerName.substring(0, 2).matches("§[0-9a-f]")) {
             primaryColor = playerName.substring(0, 2);
         }
         String rightClickName = getMultiColorName(primaryColor, color, playerName);
