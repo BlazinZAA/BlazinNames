@@ -170,8 +170,13 @@ public class Main extends JavaPlugin implements Listener {
                 primaryColor = playerName.substring(0, 2);
             }
             String rightClickName = getMultiColorName(primaryColor, color.toString(), playerName);
-            colorBlockMeta.setLore(Arrays.asList(ChatColor.GREEN + "Left-click " + ChatColor.RESET + "to set your name to " + color + player.getDisplayName().replaceAll("§[0-9a-f]", "") + ChatColor.RESET + ".",
-                                                 ChatColor.RED + "Right-click " + ChatColor.RESET + "to set your name to " + rightClickName + ChatColor.RESET + "."));
+            if (player.hasPermission("bn.namecolor.multi")) {
+                colorBlockMeta.setLore(Arrays.asList(ChatColor.GREEN + "Left-click " + ChatColor.RESET + "to set your name to " + color + player.getDisplayName().replaceAll("§[0-9a-f]", "") + ChatColor.RESET + ".",
+                                                     ChatColor.RED + "Right-click " + ChatColor.RESET + "to set your name to " + rightClickName + ChatColor.RESET + "."));
+            } else {
+                colorBlockMeta.setLore(Arrays.asList(ChatColor.GREEN + "Left-click " + ChatColor.RESET + "to set your name to " + color + player.getDisplayName().replaceAll("§[0-9a-f]", "") + ChatColor.RESET + "."));
+            }
+
             colorBlock.setItemMeta(colorBlockMeta);
             inv.setItem(colorPos, colorBlock);
             colorPos++;
@@ -252,7 +257,6 @@ public class Main extends JavaPlugin implements Listener {
             rightClickName += useColor + effects + playerName.substring(ctr, ctr + 1 );
             ctr++;
         }
-        getLogger().info(rightClickName);
         return rightClickName;
     }
 
@@ -382,13 +386,13 @@ public class Main extends JavaPlugin implements Listener {
             return true;
         }
         Player player = (Player) sender;
-        createInv(player);
         //Get users real name from actualNames HashMap.
         String actualName = actualNames.get(player.getUniqueId());
         //Get unformatted current player name.
         String playerName = player.getDisplayName();
         String currentName = playerName.replaceAll("§.", "");
         if (label.equalsIgnoreCase("NameColor") || label.equalsIgnoreCase("Color")) { //color, namecolor
+            createInv(player);
             player.openInventory(inv);
         } else if (label.equalsIgnoreCase("Nickname") || label.equalsIgnoreCase("Nick")) { //nickname, nick
             //Load new nickname from args.
@@ -416,7 +420,7 @@ public class Main extends JavaPlugin implements Listener {
                 actualNames.putIfAbsent(player.getUniqueId(), currentName);
                 //Load that name into a var.
                 String nickNameWithFormatting = ChatColor.ITALIC + nickName;
-                player.sendMessage(chatOutputPrefix + "Nickname set to " + nickNameWithFormatting + ChatColor.RESET + "! Type /" + label + " §rreset to reset it at any time. You will need to reapply any colors/effects you previously had applied.");
+                player.sendMessage(chatOutputPrefix + "Nickname set to " + nickNameWithFormatting + ChatColor.RESET + "! You will need to reapply any colors/effects you previously had applied.");
                 //Update in the customNames HashMap.
                 customNames.put(player.getUniqueId(), nickNameWithFormatting);
                 applyFormatting(player, nickNameWithFormatting);
@@ -447,30 +451,33 @@ public class Main extends JavaPlugin implements Listener {
         //Get slot # of item clicked.
         int eventSlot = event.getSlot();
         String itemDisplayName = event.getCurrentItem().getItemMeta().getDisplayName();
-        if (eventSlot <= 16) { //Colours
-            if (event.isLeftClick()) {
+        if (event.isLeftClick()) {
+            if (eventSlot <= 16) {
                 leftClick(itemDisplayName, player);
-            } else if (event.isRightClick()) {
+            }
+            else if (eventSlot >= 27 && eventSlot <= 31) { //Effects
+                String effect = itemDisplayName.substring(0, 2);
+                String reformattedName = getNameWithEffect(playerName, effect, player);
+                customNames.put(player.getUniqueId(), reformattedName);
+                applyFormatting(player, reformattedName);
+                player.sendMessage(chatOutputPrefix + "Effect applied: " + reformattedName);
+            } else if (eventSlot == 33) { //Reset
+                String resetName = playerName.replaceAll("§[0-9a-fk-n]", "");
+                customNames.put(player.getUniqueId(), resetName);
+                applyFormatting(player, resetName);
+                player.sendMessage(chatOutputPrefix + "Name color and effects reset!");
+            } else if (eventSlot == 45) { //Close
+                player.closeInventory();
+            }
+        } else if (event.isRightClick() && player.hasPermission("bn.namecolor.multi")) {
+            if (eventSlot <= 16) {
                 rightClick(itemDisplayName, player);
             }
         }
-        if (eventSlot >= 27 && eventSlot <= 31) { //Effects
-            String effect = itemDisplayName.substring(0, 2);
-
-            String reformattedName = getNameWithEffect(playerName, effect, player);
-
-            customNames.put(player.getUniqueId(), reformattedName);
-            applyFormatting(player, reformattedName);
-            player.sendMessage(chatOutputPrefix + "Effect applied: " + reformattedName);
-        } else if (eventSlot == 33) { //Reset
-            String resetName = playerName.replaceAll("§[0-9a-fk-n]", "");
-            customNames.put(player.getUniqueId(), resetName);
-            applyFormatting(player, resetName);
-            player.sendMessage(chatOutputPrefix + "Name color and effects reset!");
-        } else if (eventSlot == 45) { //Close
-            player.closeInventory();
+        if (eventSlot != 45) {
+            createInv(player);
+            player.openInventory(inv);
         }
-        player.closeInventory();
     }
 
     public String getNameWithEffect(String playerName, String effect, Player player) {
