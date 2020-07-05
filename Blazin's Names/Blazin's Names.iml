@@ -15,15 +15,6 @@
     <orderEntry type="jdk" jdkName="1.8" jdkType="JavaSDK" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module-library">
-      <library name="spigot-api-1.15.2-R0.1-SNAPSHOT-shaded.jar">
-        <CLASSES>
-          <root url="jar://$USER_HOME$/Documents/BuildTools/Spigot/Spigot-API/target/spigot-api-1.15.2-R0.1-SNAPSHOT-shaded.jar!/" />
-        </CLASSES>
-        <JAVADOC />
-        <SOURCES />
-      </library>
-    </orderEntry>
-    <orderEntry type="module-library">
       <library>
         <CLASSES>
           <root url="jar://$USER_HOME$/Documents/MCAPIs/LuckPermsAPI.jar!/" />
@@ -35,11 +26,20 @@
     <orderEntry type="module-library">
       <library>
         <CLASSES>
-          <root url="jar://$USER_HOME$/Documents/MCAPIs/spigot-1.15.2.jar!/" />
+          <root url="jar://$USER_HOME$/Documents/BuildTools/Spigot/Spigot-API/target/spigot-api-1.16.1-R0.1-SNAPSHOT-shaded.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library>
+        <CLASSES>
+          <root url="jar://$USER_HOME$/Documents/MCAPIs/spigot-1.16.1.jar!/" />
         </CLASSES>
         <JAVADOC />
         <SOURCES>
-          <root url="jar://$USER_HOME$/Documents/MCAPIs/spigot-1.15.2.jar!/" />
+          <root url="jar://$USER_HOME$/Documents/MCAPIs/spigot-1.16.1.jar!/" />
         </SOURCES>
       </library>
     </orderEntry>

@@ -1,9 +1,14 @@
 package net.viedantmc.BlazinNames;
 
-import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
+import net.luckperms.api.LuckPerms;
+import net.luckperms.api.LuckPermsProvider;
+import net.luckperms.api.event.EventBus;
+import net.luckperms.api.event.log.LogPublishEvent;
+import net.luckperms.api.event.user.UserLoadEvent;
+import net.luckperms.api.event.user.track.UserDemoteEvent;
+import net.luckperms.api.event.user.track.UserPromoteEvent;
+import net.md_5.bungee.api.ChatColor;
+import net.viedantmc.Files.DataManager;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.command.Command;
@@ -20,17 +25,11 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import net.md_5.bungee.api.ChatColor;
-import net.viedantmc.Files.DataManager;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 //LuckPerms API import
-import net.luckperms.api.LuckPerms;
-import net.luckperms.api.LuckPermsProvider;
-import net.luckperms.api.event.EventBus;
-import net.luckperms.api.event.log.LogPublishEvent;
-import net.luckperms.api.event.user.UserLoadEvent;
-import net.luckperms.api.event.user.track.UserPromoteEvent;
-import net.luckperms.api.event.user.track.UserDemoteEvent;
 
 public class Main extends JavaPlugin implements Listener {
     //HashMap of all custom Names.
@@ -174,10 +173,10 @@ public class Main extends JavaPlugin implements Listener {
             }
             String rightClickName = getMultiColorName(primaryColor, color.toString(), playerName);
             if (player.hasPermission("bn.namecolor.multi")) {
-                colorBlockMeta.setLore(Arrays.asList(ChatColor.GREEN + "Left-click " + ChatColor.RESET + "to set your name to " + color + player.getDisplayName().replaceAll("§[0-9a-f]", "") + ChatColor.RESET + ".",
+                colorBlockMeta.setLore(Arrays.asList(ChatColor.GREEN + "Left-click " + ChatColor.WHITE + "to set your name to " + color + player.getDisplayName().replaceAll("§[0-9a-f]", "") + ChatColor.WHITE + ".",
                         ChatColor.RED + "Right-click " + ChatColor.RESET + "to set your name to " + rightClickName + ChatColor.RESET + "."));
             } else {
-                colorBlockMeta.setLore(Arrays.asList(ChatColor.GREEN + "Left-click " + ChatColor.RESET + "to set your name to " + color + player.getDisplayName().replaceAll("§[0-9a-f]", "") + ChatColor.RESET + "."));
+                colorBlockMeta.setLore(Arrays.asList(ChatColor.GREEN + "Left-click " + ChatColor.WHITE + "to set your name to " + color + player.getDisplayName().replaceAll("§[0-9a-f]", "") + ChatColor.WHITE + "."));
             }
 
             colorBlock.setItemMeta(colorBlockMeta);
@@ -211,7 +210,7 @@ public class Main extends JavaPlugin implements Listener {
             ItemMeta effectBlockMeta = (ItemMeta) effectBlock.getItemMeta();
             effectBlockMeta.setDisplayName(effect + effect.getName().replaceAll("_", " ").toUpperCase());
             String playerName = player.getDisplayName().replaceAll("§r", "");
-            effectBlockMeta.setLore(Arrays.asList(ChatColor.GREEN + "Left-click " + ChatColor.RESET + "to set your name to " + getNameWithEffect(playerName, effect.toString(), player) + ChatColor.RESET + "."));
+            effectBlockMeta.setLore(Arrays.asList(ChatColor.GREEN + "Left-click " + ChatColor.WHITE + "to set your name to " + getNameWithEffect(playerName, effect.toString(), player) + ChatColor.WHITE + "."));
             effectBlock.setItemMeta(effectBlockMeta);
             inv.setItem(effectPos, effectBlock);
             effectPos++;
@@ -222,7 +221,7 @@ public class Main extends JavaPlugin implements Listener {
         ItemStack resetItem = new ItemStack(Material.SNOWBALL, 1);
         ItemMeta resetItemMeta = (ItemMeta) resetItem.getItemMeta();
         resetItemMeta.setDisplayName("RESET");
-        resetItemMeta.setLore(Arrays.asList(ChatColor.GREEN + "Left-click " + ChatColor.RESET + "to reset your name to " + player.getDisplayName().replaceAll("§.", "") + "."));
+        resetItemMeta.setLore(Arrays.asList(ChatColor.GREEN + "Left-click " + ChatColor.WHITE + "to reset your name to " + player.getDisplayName().replaceAll("§.", "") + "."));
         resetItem.setItemMeta(resetItemMeta);
         if (effectsAllowed.isEmpty()) {
             inv.setItem(27, resetItem);
@@ -233,7 +232,7 @@ public class Main extends JavaPlugin implements Listener {
         ItemStack closeItem = new ItemStack(Material.REDSTONE, 1);
         ItemMeta closeItemMeta = (ItemMeta) closeItem.getItemMeta();
         closeItemMeta.setDisplayName("CLOSE");
-        closeItemMeta.setLore(Arrays.asList(ChatColor.GREEN + "Left-click " + ChatColor.RESET + "to " + ChatColor.RED + "close " + ChatColor.RESET + "this menu."));
+        closeItemMeta.setLore(Arrays.asList(ChatColor.GREEN + "Left-click " + ChatColor.WHITE + "to " + ChatColor.RED + "close " + ChatColor.WHITE + "this menu."));
         closeItem.setItemMeta(closeItemMeta);
         inv.setItem(45, closeItem);
     }
@@ -478,10 +477,17 @@ public class Main extends JavaPlugin implements Listener {
                 leftClick(itemDisplayName, player);
             } else if (eventSlot >= 27 && eventSlot <= 31) { //Effects
                 String effect = itemDisplayName.substring(0, 2);
-                String reformattedName = getNameWithEffect(playerName, effect, player);
-                customNames.put(player.getUniqueId(), reformattedName);
-                applyFormatting(player, reformattedName, false);
-                player.sendMessage(chatOutputPrefix + "Effect applied: " + reformattedName);
+                if (effect.equals("RE")) {
+                    String resetName = playerName.replaceAll("§[0-9a-fk-n]", "");
+                    customNames.put(player.getUniqueId(), resetName);
+                    applyFormatting(player, resetName, false);
+                    player.sendMessage(chatOutputPrefix + "Name color and effects reset!");
+                } else {
+                    String reformattedName = getNameWithEffect(playerName, effect, player);
+                    customNames.put(player.getUniqueId(), reformattedName);
+                    applyFormatting(player, reformattedName, false);
+                    player.sendMessage(chatOutputPrefix + "Effect applied: " + reformattedName);
+                }
             } else if (eventSlot == 33) { //Reset
                 String resetName = playerName.replaceAll("§[0-9a-fk-n]", "");
                 customNames.put(player.getUniqueId(), resetName);
