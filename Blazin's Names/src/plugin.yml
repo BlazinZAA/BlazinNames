@@ -1,6 +1,6 @@
 main: net.viedantmc.BlazinNames.Main
 name: BlazinNames
-version: 1.6
+version: 1.7
 author: Laustz & Blazin_
 api-version: 1.16
 loadbefore: [CMI, LuckPerms]

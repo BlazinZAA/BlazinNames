@@ -1,14 +1,7 @@
 package net.viedantmc.BlazinNames;
 
-import net.luckperms.api.LuckPerms;
-import net.luckperms.api.LuckPermsProvider;
-import net.luckperms.api.event.EventBus;
-import net.luckperms.api.event.log.LogPublishEvent;
-import net.luckperms.api.event.user.UserLoadEvent;
-import net.luckperms.api.event.user.track.UserDemoteEvent;
-import net.luckperms.api.event.user.track.UserPromoteEvent;
+import me.neznamy.tab.api.EnumProperty;
 import net.md_5.bungee.api.ChatColor;
-import net.viedantmc.Files.DataManager;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.command.Command;
@@ -17,17 +10,18 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerLoginEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import static me.neznamy.tab.api.TABAPI.*;
 
 //LuckPerms API import
 
@@ -36,9 +30,7 @@ public class Main extends JavaPlugin implements Listener {
     public static Map<UUID, String> customNames = new HashMap<>();
     //HashMap of all UUID->Original Names. Used when resetting nickname.
     public static Map<UUID, String> actualNames = new HashMap<>();
-    public DataManager data;
     public Inventory inv;
-    public LuckPerms lpAPI;
     final public String chatOutputPrefix = ChatColor.GRAY + "[" + ChatColor.GOLD + "B" + ChatColor.RED + "N" + ChatColor.GRAY + "] " + ChatColor.RESET;
 
     /**
@@ -47,7 +39,6 @@ public class Main extends JavaPlugin implements Listener {
      */
     @Override
     public void onEnable() {
-        data = new DataManager(this);
         getServer().getPluginManager().registerEvents(this, this);
         this.saveDefaultConfig();
         if (getConfig().contains("customNames")) {
@@ -60,21 +51,8 @@ public class Main extends JavaPlugin implements Listener {
                     actualNames.put(UUID.fromString(key), getConfig().getString("actualNames." + key))
             );
         }
-        instantiateAPIS();
     }
 
-    /**
-     * Creates instances of all required APIs.
-     */
-    public void instantiateAPIS() {
-        lpAPI = LuckPermsProvider.get();
-        if (lpAPI == null) {
-            getLogger().severe("Failed to load LuckPerms API. Check LuckPerms has loaded correctly.");
-            getServer().getPluginManager().disablePlugin(this);
-            return;
-        }
-        lpListener();
-    }
 
     /**
      * Wait for plugin to be disabled (server stop).
@@ -174,7 +152,7 @@ public class Main extends JavaPlugin implements Listener {
             String rightClickName = getMultiColorName(primaryColor, color.toString(), playerName);
             if (player.hasPermission("bn.namecolor.multi")) {
                 colorBlockMeta.setLore(Arrays.asList(ChatColor.GREEN + "Left-click " + ChatColor.WHITE + "to set your name to " + color + player.getDisplayName().replaceAll("§[0-9a-f]", "") + ChatColor.WHITE + ".",
-                        ChatColor.RED + "Right-click " + ChatColor.RESET + "to set your name to " + rightClickName + ChatColor.RESET + "."));
+                        ChatColor.RED + "Right-click " + ChatColor.WHITE + "to set your name to " + rightClickName + ChatColor.WHITE + "."));
             } else {
                 colorBlockMeta.setLore(Arrays.asList(ChatColor.GREEN + "Left-click " + ChatColor.WHITE + "to set your name to " + color + player.getDisplayName().replaceAll("§[0-9a-f]", "") + ChatColor.WHITE + "."));
             }
@@ -242,7 +220,7 @@ public class Main extends JavaPlugin implements Listener {
         int ctr = 0;
 
         Set<String> allMatches = new HashSet<String>();
-        Matcher m = Pattern.compile("§[k-n]").matcher(playerName);
+        Matcher m = Pattern.compile("§[k-o]").matcher(playerName);
         while (m.find()) {
             allMatches.add(m.group());
         }
@@ -266,49 +244,6 @@ public class Main extends JavaPlugin implements Listener {
         return rightClickName;
     }
 
-    /**
-     * Subscribe to the event listeners so that nameplates change properly on rank change.
-     */
-    public void lpListener() {
-        // Set the LuckPerms event bus
-        EventBus eventBus = lpAPI.getEventBus();
-        // Subscribe to an event using a lambda
-        eventBus.subscribe(LogPublishEvent.class, e -> e.setCancelled(true));
-        eventBus.subscribe(UserLoadEvent.class, e -> {
-            System.out.println("User " + e.getUser().getUsername() + " was loaded!");
-        });
-        // Subscribe to an event using a method reference.
-        eventBus.subscribe(UserPromoteEvent.class, this::onUserPromote);
-        eventBus.subscribe(UserDemoteEvent.class, this::onUserDemote);
-    }
-
-    /**
-     * Sets the players scoreboard prefix to the correct rank after promotion.
-     *
-     * @param event The promote event.
-     */
-    private void onUserPromote(UserPromoteEvent event) {
-        Plugin plugin = this;
-        Bukkit.getScheduler().runTask(plugin, () -> {
-            Player player = Bukkit.getPlayer(event.getUser().getUniqueId());
-            setPrefixToRank(player);
-            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tablistupdate");
-        });
-    }
-
-    /**
-     * Sets the players scoreboard prefix to the correct rank after demotion.
-     *
-     * @param event The demote event.
-     */
-    private void onUserDemote(UserDemoteEvent event) {
-        Plugin plugin = this;
-        Bukkit.getScheduler().runTask(plugin, () -> {
-            Player player = Bukkit.getPlayer(event.getUser().getUniqueId());
-            setPrefixToRank(player);
-            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tablistupdate");
-        });
-    }
 
     /**
      * Waits for a user to join the server, looks up their nickname / colouration in the YAML file and applies them.
@@ -324,54 +259,20 @@ public class Main extends JavaPlugin implements Listener {
         if (customNames.get(player.getUniqueId()) != null) {
             formattedName = ChatColor.translateAlternateColorCodes('&', customNames.get(player.getUniqueId()));
         }
-        applyFormatting(player, formattedName, true);
+        applyFormatting(player, formattedName);
     }
 
     /**
-     * Waits for player to login and sets their prefix to their LuckPerms rank.
-     *
-     * @param e The event generated by each player when they join the server.
-     */
-    @EventHandler
-    public void onJoin(PlayerJoinEvent e) {
-        Player player = e.getPlayer();
-        setPrefixToRank(player);
-    }
-
-    /**
-     * Applies formatting to a players nameplate, tablist, and chat names.
+     * Applies formatting to a player.
      *
      * @param player        The player to apply formatting to.
      * @param formattedName The formatted name.
-     * @param login         Whether this is being run on login.
      */
-    public void applyFormatting(Player player, String formattedName, Boolean login) {
+    public void applyFormatting(Player player, String formattedName) {
         if (customNames.get(player.getUniqueId()) != null) {
             formattedName = ChatColor.translateAlternateColorCodes('&', customNames.get(player.getUniqueId())).replaceAll("§r", "");
         }
         player.setDisplayName(formattedName);
-        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tablistupdate");
-        if (!login) {
-            setPrefixToRank(player);
-        }
-    }
-
-    /**
-     * Sets a players nameplate and tablist prefix for a player.
-     *
-     * @param player The player to apply the prefix to.
-     */
-    public void setPrefixToRank(Player player) {
-        try {
-            String executingUser = player.getDisplayName().replaceAll("§.", "");
-            String prefix = lpAPI.getUserManager().getUser(player.getUniqueId()).getCachedData().getMetaData().getPrefix();
-            if (prefix == null) {
-                prefix = "";
-            }
-            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "cmi nameplate " + executingUser + " -pref:" + prefix);
-        } catch (Exception e) {
-            getLogger().info("Prefix for player will update when they next join.");
-        }
     }
 
     /**
@@ -381,7 +282,6 @@ public class Main extends JavaPlugin implements Listener {
      * @param command The command executed.
      * @param alias   The command typed by the user.
      * @param args    Arguments of the command.
-     * @return
      */
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
@@ -407,9 +307,7 @@ public class Main extends JavaPlugin implements Listener {
             return true;
         }
         Player player = (Player) sender;
-        //Get users real name from actualNames HashMap.
         String actualName = actualNames.get(player.getUniqueId());
-        //Get unformatted current player name.
         String playerName = player.getDisplayName();
         String currentName = playerName.replaceAll("§.", "");
         if (label.equalsIgnoreCase("NameColor") || label.equalsIgnoreCase("Color")) { //color, namecolor
@@ -429,7 +327,7 @@ public class Main extends JavaPlugin implements Listener {
             if (nickName.equalsIgnoreCase("Reset")) {
                 if (actualName != null) {
                     customNames.put(player.getUniqueId(), actualName);
-                    applyFormatting(player, actualName, false);
+                    applyFormatting(player, actualName);
                     actualNames.remove(player.getUniqueId());
                     player.sendMessage(chatOutputPrefix + "Nickname reset!");
                 } else {
@@ -437,14 +335,11 @@ public class Main extends JavaPlugin implements Listener {
                 }
                 return true;
             } else if (nickName.matches("([A-Za-z0-9]|_){3,16}")) { //Regex to check if name entered matches minecraft naming conventions.
-                //If not already exists, add users un-nickedname to the actualNames HashMap for future reference.
                 actualNames.putIfAbsent(player.getUniqueId(), currentName);
-                //Load that name into a var.
                 String nickNameWithFormatting = ChatColor.ITALIC + nickName;
                 player.sendMessage(chatOutputPrefix + "Nickname set to " + nickNameWithFormatting + ChatColor.RESET + "! You will need to reapply any colors/effects you previously had applied.");
-                //Update in the customNames HashMap.
                 customNames.put(player.getUniqueId(), nickNameWithFormatting);
-                applyFormatting(player, nickNameWithFormatting, false);
+                applyFormatting(player, nickNameWithFormatting);
             } else { //Does not conform to regex - error out.
                 sender.sendMessage(chatOutputPrefix + ChatColor.RED + "Nicknames must be alphanumeric, between 3-16 characters, and may contain _.");
             }
@@ -467,31 +362,29 @@ public class Main extends JavaPlugin implements Listener {
         }
         event.setCancelled(true);
         Player player = (Player) event.getWhoClicked();
-        //Get player name and replace all reset markers to prevent long chain.
         String playerName = player.getDisplayName().replaceAll("§r", "");
-        //Get slot # of item clicked.
         int eventSlot = event.getSlot();
         String itemDisplayName = event.getCurrentItem().getItemMeta().getDisplayName();
         if (event.isLeftClick()) {
-            if (eventSlot <= 16) {
+            if (eventSlot <= 16 || eventSlot == 32) {
                 leftClick(itemDisplayName, player);
-            } else if (eventSlot >= 27 && eventSlot <= 31) { //Effects
+            } else if (eventSlot >= 27) { //Effects
                 String effect = itemDisplayName.substring(0, 2);
                 if (effect.equals("RE")) {
                     String resetName = playerName.replaceAll("§[0-9a-fk-n]", "");
                     customNames.put(player.getUniqueId(), resetName);
-                    applyFormatting(player, resetName, false);
+                    applyFormatting(player, resetName);
                     player.sendMessage(chatOutputPrefix + "Name color and effects reset!");
                 } else {
                     String reformattedName = getNameWithEffect(playerName, effect, player);
                     customNames.put(player.getUniqueId(), reformattedName);
-                    applyFormatting(player, reformattedName, false);
+                    applyFormatting(player, reformattedName);
                     player.sendMessage(chatOutputPrefix + "Effect applied: " + reformattedName);
                 }
             } else if (eventSlot == 33) { //Reset
                 String resetName = playerName.replaceAll("§[0-9a-fk-n]", "");
                 customNames.put(player.getUniqueId(), resetName);
-                applyFormatting(player, resetName, false);
+                applyFormatting(player, resetName);
                 player.sendMessage(chatOutputPrefix + "Name color and effects reset!");
             } else if (eventSlot == 45) { //Close
                 player.closeInventory();
@@ -507,6 +400,14 @@ public class Main extends JavaPlugin implements Listener {
         }
     }
 
+    /**
+     * Gets a player name with effects applied.
+     *
+     * @param playerName The player's current display name.
+     * @param effect     The effect to be applied to the player name.
+     * @param player     The player object.
+     * @return String. The formatted name.
+     */
     public String getNameWithEffect(String playerName, String effect, Player player) {
         String reformattedName = playerName;
         Set<String> allMatches = new HashSet<String>();
@@ -523,9 +424,7 @@ public class Main extends JavaPlugin implements Listener {
         if (actualNames.get(player.getUniqueId()) != null) {
             effect += ChatColor.ITALIC;
         }
-
         reformattedName = reformattedName.replaceAll("§[k-o]", "");
-
         if (reformattedName.substring(0, 2).matches("§[0-9a-f]")) { //Does name already have colour applied?
             String primaryColor = reformattedName.substring(0, 2);
             if (reformattedName.substring(3, 5).matches("§[0-9a-f]")) {
@@ -549,16 +448,50 @@ public class Main extends JavaPlugin implements Listener {
         return reformattedName;
     }
 
+    @EventHandler
+    public void onAsyncChat(AsyncPlayerChatEvent e) {
+        new Thread(new Runnable() {
+            public void run() {
+                Player player = e.getPlayer();
+                UUID playerUUID = player.getUniqueId();
+                String message = e.getMessage();
+                if (message.length() > 35) {
+                    message = message.substring(0, 33) + "...";
+                }
+                setValueTemporarily(playerUUID, EnumProperty.BELOWNAME, message);
+                try {
+                    Thread.sleep(5000);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                }
+                if (hasTemporaryValue(playerUUID, EnumProperty.BELOWNAME)) {
+                    removeTemporaryValue(playerUUID, EnumProperty.BELOWNAME);
+                }
+            }
+        }).start();
+    }
+
+    /**
+     * Applies single colour to name on left-click on color.
+     *
+     * @param itemDisplayName The display name of the item clicked.
+     * @param player          The player object to apply the color to.
+     */
     public void leftClick(String itemDisplayName, Player player) {
         //Get colour to apply to name.
         String color = itemDisplayName.substring(0, 2);
         String reformattedName = color + player.getDisplayName().replaceAll("§[0-9a-f]", "");
         customNames.put(player.getUniqueId(), reformattedName);
         player.sendMessage(chatOutputPrefix + "Color applied: " + reformattedName);
-        applyFormatting(player, reformattedName, false);
+        applyFormatting(player, reformattedName);
     }
 
-
+    /**
+     * Applies a multi-colour to a player on right-click.
+     *
+     * @param itemDisplayName The display name of the item clicked.
+     * @param player          The player object to apply the color to.
+     */
     public void rightClick(String itemDisplayName, Player player) {
         String color = itemDisplayName.substring(0, 2);
         String playerName = player.getDisplayName();
@@ -569,7 +502,7 @@ public class Main extends JavaPlugin implements Listener {
         String rightClickName = getMultiColorName(primaryColor, color, playerName);
         customNames.put(player.getUniqueId(), rightClickName);
         player.sendMessage(chatOutputPrefix + "Color applied: " + rightClickName);
-        applyFormatting(player, rightClickName, false);
+        applyFormatting(player, rightClickName);
     }
 
 }
