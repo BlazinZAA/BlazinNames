@@ -366,9 +366,9 @@ public class Main extends JavaPlugin implements Listener {
         int eventSlot = event.getSlot();
         String itemDisplayName = event.getCurrentItem().getItemMeta().getDisplayName();
         if (event.isLeftClick()) {
-            if (eventSlot <= 16 || eventSlot == 32) {
+            if (eventSlot <= 16) {
                 leftClick(itemDisplayName, player);
-            } else if (eventSlot >= 27) { //Effects
+            } else if (eventSlot >= 27 && eventSlot != 45) { //Effects
                 String effect = itemDisplayName.substring(0, 2);
                 if (effect.equals("RE")) {
                     String resetName = playerName.replaceAll("§[0-9a-fk-n]", "");
